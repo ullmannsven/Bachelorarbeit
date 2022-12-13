@@ -21,7 +21,6 @@ thetas = [ExpressionParameterFunctional('1.1 + sin(diffusion[0])*diffusion[1]', 
 
                                        ]
 
-                                       
 diffusion = LincombFunction([rest_of_domain, indicator_domain], thetas)
 
 theta_J = ExpressionParameterFunctional('1 + 1/5 * diffusion[0] + 1/5 * diffusion[1]', parameters,
@@ -145,10 +144,18 @@ from scipy.optimize import NonlinearConstraint
 from scipy.optimize import BFGS
 from scipy.optimize import minimize
 import math as m
-k = 0
+k = 0 #outer iteration index is called k, the one for the inner optimization task well be later called l
 loop_flag = True
-beta_2 = 0.8 #usually chosen close to one
-initial_guess = np.array([[0.25, 0.5]])
+
+initial_guess = np.array([[0.25, 0.5]]) #initial guess for correct minimizing value, in the future multi starts might be an option
+del_tr = 0.5 #initial TR radius. dont know how to chose this best, maybe try and error 
+beta_1 = 0.5 #TR shringking factor
+beta_2 = 0.8 #safeguard for TR boundary, usually chosen close to one
+nu = 0.9 #tolerance for enlarging the TR radius
+tau_sub = 0.05 #paper proposes << 1, not sure what choice works fine here
+tau_FOC = 0.5 #termination condition for the whole TR algorithm
+width_gauss = 10 #TODO check if this yields a good approximation, otherwise *10 or /10
+#TODO is it useful, to keep track of the old TR values and the minimizing sequence??
 
 #TODO vectorize
 def gauss_kernel(data, width):
@@ -160,27 +167,42 @@ def gauss_kernel(data, width):
     return K 
 
 while loop_flag:
+    #create a random point set close to the current iterate, which is the initial guess in the first iteration
+    #TODO this is going to be the most intricate part of the algorithm, because it is unclear how to do this
     random_data_set = initial_guess.T + 0.25*np.random.randn(2,5)
     num_of_points = len(random_data_set[0,:])
+
+    #TODO vectorize
     target_values = np.zeros((num_of_points,1))
     for i in range(num_of_points):
         target_values[i,0] = fom_objective_functional((random_data_set[0,i], random_data_set[1,i]))
-    width=10
-    K = gauss_kernel(random_data_set, width=width)
+
+    #compute kernel matrix and solver linear eq system
+    K = gauss_kernel(random_data_set, width=width_gauss)
     alpha = np.linalg.solve(K, target_values)
+
+    #comoute the kernel interpolant via lincomb of alpha_i and kernel values, TODO make this more efficient?
     def kernel_interpolant(x):
         interpol_val = 0
         for j in range(num_of_points):
-            interpol_val += alpha[j,0]*m.exp(-width*(np.linalg.norm(random_data_set[:,j] - x, 2)**2))
+            interpol_val += alpha[j,0]*m.exp(-width_gauss*(np.linalg.norm(random_data_set[:,j] - x, 2)**2))
         return interpol_val
 
     #TODO i dont know how to compute this, RKHS norm missing
     del_kernel_interpolant = 0
-    del_k = 0
-    def cons_crit(x): 
-        return del_kernel_interpolant / kernel_interpolant
-    #solving the first minimization problem using scipy 
-    nonlinear_constraint = NonlinearConstraint(cons_crit, beta_2*del_k, del_k, jac="2-point", hess=BFGS())
+    
+    # defining the nonlinear constraints of this optimization problem
+    def cons_crit(mu): 
+        return [del_kernel_interpolant(mu) / kernel_interpolant(mu),np.linalg.norm(mu - initial_guess, 2)]
+    nonlinear_constraint = NonlinearConstraint(cons_crit, [beta_2*del_k, 0], [del_k, del_tr], jac="2-point", hess=BFGS())
+
+    #solving the constraint inner optimization problem
+    #TODO in order to compute the generalized cauchy point, we might need the first iterate of this process
+    #Keil et al refers to an algorithm in "iteratvie Methods for optimization" by C.T. Kelly, which return the seq 
+    # all the inner iterates. Check if this can be used
+    #TODO otherwise, we can use Def 4.1 in Keil
+    #If we approximate the Jacobian (Jac) via finite differences anyway, this can be used here,
+    # compute the Hessian as well is to intricate for now i guess, not to useful anyway
     res = minimize(kernel_interpolant, initial_guess, method="trust-constr", jac="2-point", hess=SR1(),
                  options={'verbose': 1},
                  constraints=nonlinear_constraint)
