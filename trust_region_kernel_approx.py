@@ -152,7 +152,7 @@ del_tr = 0.5 #initial TR radius. dont know how to chose this best, maybe try and
 beta_1 = 0.5 #TR shringking factor
 beta_2 = 0.8 #safeguard for TR boundary, usually chosen close to one
 nu = 0.9 #tolerance for enlarging the TR radius
-tau_sub = 0.05 #paper proposes << 1, not sure what choice works fine here
+#tau_sub = 0.05 #paper proposes << 1, not sure what choice works fine here, this is the terminating condition for one of the two possible stopping conditions
 tau_FOC = 0.5 #termination condition for the whole TR algorithm
 width_gauss = 10 #TODO check if this yields a good approximation, otherwise *10 or /10
 #TODO is it useful, to keep track of the old TR values and the minimizing sequence??
@@ -192,6 +192,7 @@ while loop_flag:
     del_kernel_interpolant = 0
     
     # defining the nonlinear constraints of this optimization problem
+    # mu is the parameter we want to optimize over, we could also write everything in term of the auxilary variable "s" and add s to the old iterate eventually
     def cons_crit(mu): 
         return [del_kernel_interpolant(mu) / kernel_interpolant(mu),np.linalg.norm(mu - initial_guess, 2)]
     nonlinear_constraint = NonlinearConstraint(cons_crit, [beta_2*del_k, 0], [del_k, del_tr], jac="2-point", hess=BFGS())
@@ -208,6 +209,8 @@ while loop_flag:
                  constraints=nonlinear_constraint)
     print(res)
     loop_flag=False
+
+#somehow needed if i want to run everything in the vs code terminal, stack overflow reference
 plt.show(block=True)
 
 
