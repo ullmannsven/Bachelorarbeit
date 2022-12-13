@@ -20,6 +20,8 @@ thetas = [ExpressionParameterFunctional('1.1 + sin(diffusion[0])*diffusion[1]', 
                                                                              'cos(diffusion[1])']}),
 
                                        ]
+
+                                       
 diffusion = LincombFunction([rest_of_domain, indicator_domain], thetas)
 
 theta_J = ExpressionParameterFunctional('1 + 1/5 * diffusion[0] + 1/5 * diffusion[1]', parameters,
