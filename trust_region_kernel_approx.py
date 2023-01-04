@@ -135,6 +135,9 @@ def report(result, data, reference_mu=None):
 #     return result
 
 #reference_minimization_data = prepare_data()
+
+###########################################################################################################################
+
 ## so far everything is copy pasted from pymor
 
 # now my own implementation for starts
@@ -144,6 +147,9 @@ def report(result, data, reference_mu=None):
 #from scipy.optimize import minimize
 import math as m
 import time 
+import numpy as np
+from vkoga.vkoga import VKOGA
+from vkoga.kernels import Gaussian
 
 def projection_onto_range(parameter_space, mu):
     #project the parameter into the given range of the parameter space (in case it is laying outside)
@@ -190,45 +196,56 @@ def parse_parameter_inverse(mu):
 #                 mu_k.append(mu_k_add)
 #     return mu_k
 
-def gauss_kernel_matrix(data, width=10):
-    n = len(data[0,:])
-    K = np.zeros((n,n))
-    for i in range(n):
-        for j in range(n):
-            K[i,j] = m.exp(-width*(np.linalg.norm(data[:,i] - data[:,j], 2)**2))
-    return K 
+# def gauss_kernel_matrix(data, width=10):
+#     n = len(data[0,:])
+#     K = np.zeros((n,n))
+#     for i in range(n):
+#         for j in range(n):
+#             K[i,j] = m.exp(-width*(np.linalg.norm(data[:,i] - data[:,j], 2)**2))
+#     return K 
 
-def compute_surogate_model(mu_k):
-    #create a random point set close to the current iterate, which is the initial guess in the first iteration
-    #TODO this is going to be the most intricate part of the algorithm, because it is unclear how to do this
-    random_data_set = mu_k.T + 0.25*np.random.randn(2,5)
-    num_of_points = len(random_data_set[0,:])
+# def compute_surogate_model(mu_k):
+#     #create a random point set close to the current iterate, which is the initial guess in the first iteration
+#     #TODO this is going to be the most intricate part of the algorithm, because it is unclear how to do this
+#     random_data_set = mu_k.T + 0.25*np.random.randn(2,5)
+#     num_of_points = len(random_data_set[0,:])
 
-    #TODO vectorize with vkoga package
-    target_values = np.zeros((num_of_points,1))
+#     #TODO vectorize with vkoga package
+#     target_values = np.zeros((num_of_points,1))
+#     for i in range(num_of_points):
+#         target_values[i,0] = fom_objective_functional((random_data_set[0,i], random_data_set[1,i]))
+
+#     #compute kernel matrix and solver linear eq system
+#     K = gauss_kernel_matrix(random_data_set, width=10)
+#     alpha = np.linalg.solve(K, target_values)
+
+#     return random_data_set, num_of_points, alpha
+
+def create_training_dataset(mu_k, opt_fom_functional):
+    X_train = mu_k.T + 0.25*np.random.randn(2,20)
+    num_of_points = len(X_train[0,:])
+
+    #TODO should the FOM be used here??
+    y_train = np.zeros((num_of_points,1))
     for i in range(num_of_points):
-        target_values[i,0] = fom_objective_functional((random_data_set[0,i], random_data_set[1,i]))
+        y_train[i,0] = opt_fom_functional((X_train[0,i], X_train[1,i]))
 
-    #compute kernel matrix and solver linear eq system
-    K = gauss_kernel_matrix(random_data_set, width=10)
-    alpha = np.linalg.solve(K, target_values)
+    return X_train.T, y_train, num_of_points
 
-    return random_data_set, num_of_points, alpha
-
-def armijo_rule(kernel_interpolant, random_data_set, num_of_points, alpha, parameter_space, TR_parameters, mu_k_np, Ji, direction):
+def armijo_rule(kernel_model, parameter_space, TR_parameters, mu_k_np, Ji, direction):
     j = 0
     condition = True
     while condition and j < TR_parameters['max_iterations_armijo']:
         mu_ip1 = mu_k_np + (TR_parameters['initial_step_armijo']**j) * direction
         mu_ip1 = projection_onto_range(parameter_space, mu_ip1)
-        Jip1 = kernel_interpolant(mu_ip1, random_data_set, num_of_points, alpha)
+        Jip1 = kernel_model.predict(mu_ip1)
         estimator = 10 #TODO: this needs to be computed by a new function, not sure yet how to implement this properly
-        if Jip1 <= Ji - (TR_parameters['armijo_alpha'] / ((TR_parameters['initial_step_armijo']**j))) * (np.linalg.norm(mu_ip1 - mu_k_np)**2) and abs(estimator / J_ip1) <= TR_parameters['radius']:
+        if Jip1 <= Ji - (TR_parameters['armijo_alpha'] / ((TR_parameters['initial_step_armijo']**j))) * (np.linalg.norm(mu_ip1 - mu_k_np)**2) and abs(estimator / Jip1) <= TR_parameters['radius']:
             condition = False
         j += 1
 
     if condition:
-        print("Maximum iteration for Armijo rule reached"):
+        print("Warning: Maximum iteration for Armijo rule reached")
         mu_ip1 = mu_k_np
         Jip1 = Ji
         est = TR_parameters['radius']*Ji #TODO why
@@ -236,24 +253,24 @@ def armijo_rule(kernel_interpolant, random_data_set, num_of_points, alpha, param
     return mu_ip1, Jip1, abs(est/Jip1)
 
 def compute_new_hessian_approximation(mu_i, old_mu, gradient, old_gradient, B):
-    y_k = gradient - old_gradient
-    s_k = mu_i - old_mu
-    den = np.dot(yk, s_k)
-    print(den)
+    yk = gradient - old_gradient
+    sk = mu_i - old_mu
+    sk = sk[0,:]
+    den = np.dot(yk, sk)
     
     if den > 0:
-        Hkyk = B @ y_k
-        coeff = np.dot(y_k, Hkyk)
-        HkykskT = np.outer(Hkyk, s_k)
-        skHkykT = np.outer(s_k, Hkyk)
-        skskT = np.outer(s_k, s_k)
+        Hkyk = B @ yk
+        coeff = np.dot(yk, Hkyk)
+        HkykskT = np.outer(Hkyk, sk)
+        skHkykT = np.outer(sk, Hkyk)
+        skskT = np.outer(sk, sk)
         new_B = B + ((den + coeff)/(den*den) * skskT)  - (HkykskT/den) - (skHkykT/den)
     else: 
-        new_B = np.eye.(old_gradient.size)
+        new_B = np.eye(old_gradient.size)
     return new_B
 
-def solve_optimization_subproblem_BFGS(kernel_interpolant,random_data_set, num_of_points, alpha, parameter_space, mu_i, TR_parameters):
-    print('starting BFGS subproblem')
+def solve_optimization_subproblem_BFGS(kernel_model, parameter_space, mu_i, TR_parameters):
+    print('\n______ starting BFGS subproblem _______')
     
     mus = []
     Js = []
@@ -261,19 +278,22 @@ def solve_optimization_subproblem_BFGS(kernel_interpolant,random_data_set, num_o
 
     mu_diff = []
     J_diff = []
-    Ji = kernel_interpolant(mu_i, random_data_set, num_of_points, alpha)
+    
+    Ji = kernel_model.predict(mu_i)
 
-    gradient = np.array([[5,5]]) #TODO
+    gradient = np.array([5,5]) #TODO
     normgrad = np.linalg.norm(gradient)
 
+    #TODO check why this is necessary
     mu_i_1 = mu_i - gradient
     mu_i_1 = projection_onto_range(parameter_space, mu_i_1)
 
-    B = np.eye(mu_k_np.size)
+    B = np.eye(mu_i.size)
 
     i = 0
     while i < TR_parameters['max_iterations_subproblem']:
         if i>0:
+            #TODO this does not feel right
             if boundary_TR_criterium >= TR_parameters['beta_2']*TR_parameters['radius']:
                 print('boundary condition of TR satisfied, stopping the sub-problem solver now')
                 return mu_ip1, J_AGC, i, Jip1, FOCs
@@ -287,7 +307,7 @@ def solve_optimization_subproblem_BFGS(kernel_interpolant,random_data_set, num_o
             print("Not a descend direction ... taking -gradient as direction")
             direction = -gradient 
 
-        mu_ip1, Jip1, boundary_TR_criterium = armijo_rule(kernel_interpolant, random_data_set, num_of_points, alpha, parameter_space, TR_parameters, mu_i, Ji, direction)
+        mu_ip1, Jip1, boundary_TR_criterium = armijo_rule(kernel_model, parameter_space, TR_parameters, mu_i, Ji, direction)
 
         if i == 0:
             J_AGC = Jip1
@@ -308,14 +328,16 @@ def solve_optimization_subproblem_BFGS(kernel_interpolant,random_data_set, num_o
         mu_i_1 = mu_i - gradient 
         mu_i_1 = projection_onto_range(parameter_space, mu_i_1)
 
-        B = compute_new_hessian_approximation(mu_i, old_mu, gradint, old_gradient, B)
+        B = compute_new_hessian_approximation(mu_i, old_mu, gradient, old_gradient, B)
 
         mus.append(mu_ip1)
         Js.append(Ji)
         FOCs.append(normgrad)
         i += 1
 
-    print("relatvie differences mu {} and J {}".format(mu_diff, J_diff))
+    print("relative differences mu {} and J {}".format(mu_diff, J_diff))
+    print('______ ending BFGS subproblem _______\n')
+
 
     return mu_ip1, J_AGC, i, Jip1, FOCs
 
@@ -326,7 +348,7 @@ def TR_Kernel(opt_fom_functional, TR_parameters=None):
         TR_parameters = {'radius': 0.1, 'sub_tolerance': 1e-8, 'max_iterations': 1, 'max_iterations_subproblem':400,
                          'starting_parameter': mu_k, 'max_iterations_armijo': 50, 'initial_step_armijo': 0.5, 
                          'armijo_alpha': 1e-4, 'epsilon_i': 1e-8, 'safety_tolerance': 1e-16, 'FOC_tolerance': 1e-16,
-                         'beta_1': 0.5 'beta_2': 0.95, 'rho': 0.75, 'enlarge_radius': True, 'timings': True}
+                         'beta_1': 0.5, 'beta_2': 0.95, 'rho': 0.75, 'enlarge_radius': True, 'timings': True}
     else:
         if 'radius' not in TR_parameters:
             TR_parameters['radius'] = 0.1
@@ -370,10 +392,6 @@ def TR_Kernel(opt_fom_functional, TR_parameters=None):
         
     
     mu_k = TR_parameters['starting_parameter']
-    
-    print('initial parameter {}'.format(mu_k))
-    
-    #switch form pymor.parameters.Base.Mu to np.arrays with the values of the parameter
     mu_k = parse_parameter_inverse(mu_k)
 
     tic = time.time()
@@ -387,13 +405,16 @@ def TR_Kernel(opt_fom_functional, TR_parameters=None):
     normgrad = 1e6
     model_improved = False
     point_rejected = False
-    J_k = opt_fom_functional.output(mu_k)[0, 0]
+    J_k = opt_fom_functional.output(mu_k)[0]
 
-    #TODO generalize with the VKOGA package
+    #Initializing the kernel via the VKOGA package
     width_gauss = 10
+    kernel = Gaussian(ep=width_gauss)
+    kernel_model = VKOGA(kernel=kernel, kernel_par=width_gauss)
 
+    print('\n**************** Getting started with the TR-Algo ***********\n')
     print('Starting value of the functional {}'.format(J_k))
-    print('**************** Getting started with the TR-Algo ***********')
+    print('Initial parameter {}'.format(mu_k))
 
     k = 0 #outer iteration index is called k
     while k < TR_parameters['max_iterations']:
@@ -407,28 +428,32 @@ def TR_Kernel(opt_fom_functional, TR_parameters=None):
                 print('\n Stopping criteria fulfilled... stopping')
                 break 
 
-        random_data_set, num_of_points, alpha = compute_surogate_model(mu_k)
+        #TODO the create_training_dataset method needs to be done properly
+        # mu_k is an argument of this function, since the updated training set should depend the current parameter
+        X_train, y_train, num_of_points = create_training_dataset(mu_k, opt_fom_functional)
+        kernel_model = kernel_model.fit(X_train, y_train,maxIter=int(num_of_points/2))
 
         #TODO wohin muss diese funktion??
-        def kernel_interpolant(mu, random_data_set, num_of_points, alpha):
-            interpol_val = 0
-            for j in range(num_of_points):
-                interpol_val += alpha[j,0]*m.exp(-width_gauss*(np.linalg.norm(random_data_set[:,j] - mu, 2)**2))
-            return interpol_val
+        # def kernel_interpolant(mu, random_data_set, num_of_points, alpha):
+        #     interpol_val = 0
+        #     for j in range(num_of_points):
+        #         interpol_val += alpha[j,0]*m.exp(-width_gauss*(np.linalg.norm(random_data_set[:,j] - mu, 2)**2))
+        #     return interpol_val
         
-        mu_kp1, J_AGC, j, J_kp1, FOCs = solve_optimization_subproblem_BFGS(kernel_interpolant,random_data_set, num_of_points, alpha, parameter_space, mu_k, TR_parameters)
-        print("finished sub problem optimization")
+        mu_kp1, J_AGC, j, J_kp1, FOCs = solve_optimization_subproblem_BFGS(kernel_model, parameter_space, mu_k, TR_parameters)
 
         estimate_J = 10 #TODO implement function for this
 
         if J_kp1 + estimate_J < J_AGC:
-            print("Accepting the new mu {}".format(mu_ip1), "starting to compute new kernel surrogate model")
-            #TODO create new data_set based on the old one, some kind of history tracking maybe?
+            print("Accepting the new mu {}".format(mu_kp1))
+
+            print("Updating the kernel model ...")
+            X_train, y_train, num_of_points = create_training_dataset(mu_kp1, opt_fom_functional)
+            kernel_model = kernel_model.fit(X_train, y_train, maxIter=int(num_of_points/2))
 
             #TODO for this computation, the parameter mu_ip1 must be an pymor object. 
             #Therefore we need to keep track of the, the np values, as well as the pymor values
-            #TODO this still needs to be done in the future
-            J_FOM_list = fom.output(mu_ip1)[0, 0]
+            J_FOM_list = J_FOM_list.append(opt_fom_functional.output(mu_kp1)[0])
             model_improved = True
 
             if TR_parameters['enlarge_radius']:
@@ -452,19 +477,25 @@ def TR_Kernel(opt_fom_functional, TR_parameters=None):
     
         else: 
             print("Accepting to check if new model is better")
-            #TODO improve kernel surrogate model
+            print("\nSolving FOM for new interpolation points ...")
+            X_train, y_train, num_of_points = create_training_dataset(mu_kp1, opt_fom_functional)
+            print("\nUpdating the kernel model ...")
+            kernel_model = kernel_model.fit(X_train, y_train,maxIter=int(num_of_points/2))
             model_improved = True
-            J_kp1 = kernel_interpolant(mu_kp1, random_data_set, num_of_points, alpha)
 
+            J_kp1 = kernel_model.predict(mu_kp1)
+            J_FOM_list.append(opt_fom_functional.output(mu_kp1)[0])
+            
             print("k: {} - j {} - Cost Functional: {} - mu: {}".format(k, j, J_kp1, mu_kp1))
 
             if J_kp1 > J_AGC:
                 TR_parameters['radius'] *= TR_parameters['beta_1']
-                print("Improvement not good enough: Rejecting the point mu {} and shrinking TR radius to {}".format(mu_ip1, TR_parameters['radius']))
+                print("Improvement not good enough: Rejecting the point mu {} and shrinking TR radius to {}".format(mu_kp1, TR_parameters['radius']))
                 point_rejected = True
                 J_FOM_list.pop(-1)
 
             else: 
+                print("Improvement good enough: Accpeting the new mu {} and ".format(mu_ip1))
                 mu_list.append(mu_kp1)
                 times.append(time.time() - tic)
                 Js.append(J_kp1)
@@ -473,11 +504,11 @@ def TR_Kernel(opt_fom_functional, TR_parameters=None):
                     if len(J_FOM_list) > 2:
                         if (k-1 != 0) and ((J_FOM_list[-2] - J_FOM_list[-1])/(J_k - J_kp1)) > TR_parameters['rho']:
                             TR_parameters['radius'] *= 1/(TR_parameters['beta_1'])
-                            print("enlarging the TR radius to {}".format(TR_parameters['radius']))
+                            print("Enlarging the TR radius to {}".format(TR_parameters['radius']))
                 J_k = J_kp1
 
         if not point_rejected:
-            gradient = 10
+            gradient = 1 #TODO 
             mu_box = mu_k - gradient 
             first_order_criticity = mu_k - projection_onto_range(mu_box)
             normgrad = np.linalg.norm(first_order_criticity)
