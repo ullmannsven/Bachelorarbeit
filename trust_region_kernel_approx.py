@@ -172,7 +172,8 @@ def power_function(mu, training_set):
         kernel_vector[i,0] = gauss_eval(mu, np.array([training_set[i,:]]))
 
     K = gauss_kernel_matrix(training_set.T)
-    lagrange = np.linalg.solve(K, kernel_vector)
+    #lagrange = np.linalg.solve(K, kernel_vector)
+    lagrange = np.linalg.pinv(K) @ kernel_vector
 
     sum = np.dot(lagrange[:,0], kernel_vector[:,0])
     power_val = m.sqrt(abs(gauss_eval(mu,mu) - sum))
@@ -516,6 +517,8 @@ plt.show(block=True)
 #vectorize/more efficient computation of the kernel matrix etc, trying to use more features of the vkoga packages
 #think about all the ugly indicing etc in the kernel sampling methods 
 #disable logging in pymor (see if that saves a little bit of time)
+
+#bottleneck is the point sampling strategy
 
 
 
