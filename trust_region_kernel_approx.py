@@ -1,44 +1,10 @@
 from pymor.basic import *
 import numpy as np
-import matplotlib.pyplot as plt
-
-domain = RectDomain(([-1,-1], [1,1]))
-indicator_domain = ExpressionFunction(
-    '(-2/3. <= x[0]) * (x[0] <= -1/3.) * (-2/3. <= x[1]) * (x[1] <= -1/3.) * 1. \
-   + (-2/3. <= x[0]) * (x[0] <= -1/3.) *  (1/3. <= x[1]) * (x[1] <=  2/3.) * 1.',
-    dim_domain=2)
-rest_of_domain = ConstantFunction(1, 2) - indicator_domain
-
-l = ExpressionFunction('0.5*pi*pi*cos(0.5*pi*x[0])*cos(0.5*pi*x[1])', dim_domain=2)
-
-parameters = {'diffusion': 2}
-thetas = [ExpressionParameterFunctional('1.1 + sin(diffusion[0])*diffusion[1]', parameters,
-                                       derivative_expressions={'diffusion': ['cos(diffusion[0])*diffusion[1]',
-                                                                             'sin(diffusion[0])']}),
-          ExpressionParameterFunctional('1.1 + sin(diffusion[1])', parameters,
-                                       derivative_expressions={'diffusion': ['0',
-                                                                             'cos(diffusion[1])']}),
-
-                                       ]
-
-diffusion = LincombFunction([rest_of_domain, indicator_domain], thetas)
-
-theta_J = ExpressionParameterFunctional('1 + 1/5 * diffusion[0] + 1/5 * diffusion[1]', parameters,
-                                        derivative_expressions={'diffusion': ['1/5','1/5']})
-
-problem = StationaryProblem(domain, l, diffusion, outputs=[('l2', l * theta_J)])
-
-mu_bar = problem.parameters.parse([np.pi/2,np.pi/2])
-
-fom, data = discretize_stationary_cg(problem, diameter=1/50, mu_energy_product=mu_bar)
-parameter_space = fom.parameters.space(0, np.pi)
-
-###########################################################################################################################
-
 import math as m
 import time 
 from vkoga.vkoga import VKOGA
 from vkoga.kernels import Gaussian
+import problems
 from itertools import count
 global_counter = count()
 
@@ -491,8 +457,13 @@ def TR_Kernel(opt_fom_functional, TR_parameters=None):
     
     return mu_list, J_FOM_list, J_kernel_list, FOCs, times, times_FOM
     
-
+#Setting up the problem 
+problem = linear_problem()
+mu_bar = problem.parameters.parse([np.pi/2,np.pi/2])
+fom, data = discretize_stationary_cg(problem, diameter=1/50, mu_energy_product=mu_bar)
+parameter_space = fom.parameters.space(0, np.pi)
 mu_k = parameter_space.sample_randomly(1)[0]
+
 mu_list, J_FOM_list, J_kernel_list, FOCs, times, times_FOM = TR_Kernel(fom, TR_parameters={'radius': 0.1, 
                         'sub_tolerance': 1e-8, 'max_iterations': 5, 'max_iterations_subproblem': 100,
                         'starting_parameter': mu_k, 'max_iterations_armijo': 50, 'initial_step_armijo': 0.5, 
