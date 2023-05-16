@@ -8,12 +8,14 @@ import problems
 import discretizer
 from itertools import count
 from pymor.discretizers.builtin.cg import InterpolationOperator
+from pymor.parameters.base import Mu
+from matplotlib import pyplot as plt
 global_counter = count()
 
 def fom_compute_output(mu):
-    #return fom.output(mu)[0, 0]
-    mu = problem.parameters.parse(mu)
-    return fom.output_functional_hat(mu)
+    return fom.output(mu)[0, 0]
+    #mu = problem.parameters.parse(mu)
+    #return fom.output_functional_hat(mu)
 
 def projection_onto_range(parameter_space, mu):
     """Projects the list of parameters |mu| onto the given range of the parameter space
@@ -69,7 +71,7 @@ def parse_parameter_inverse(mu):
     return mu_array
 
 def compute_RKHS_norm(fom, kernel):
-    """Computes the RKHS norm of the FOM that gets to be optimized
+    """Approximates the RKHS norm of the FOM that gets to be optimized
 
     Parameters
     ----------
@@ -99,11 +101,12 @@ def compute_RKHS_norm(fom, kernel):
     K = kernel.eval(X_train, X_train)
     alpha = np.linalg.solve(K, target_values)
     rkhs_norm = m.sqrt(alpha.T @ K @ alpha)
+
     return rkhs_norm
 
 #TODO make eps as a variable
-def compute_gradient(kernel_model, mu_k):
-    """Approximates the gradient at the parameter |mu_k| using a forward FD scheme.
+def compute_gradient(kernel_model, mu_k, X_train, y_train):
+    """Approximates the gradient at the parameter |mu_k| using a FD scheme.
 
     Parameters
     ----------
@@ -117,14 +120,30 @@ def compute_gradient(kernel_model, mu_k):
     gradient
         The |gradient| at parameter |mu_k|
     """
+    #Kernel version
+    K = kernel_model.kernel.eval(X_train, X_train)
+    alpha = np.linalg.solve(K, y_train)
+    dim = len(X_train[0,:])
+    gradient = np.zeros((1, dim))
+    for j in range(dim):
+        for i in range(len(X_train[:,0])):
+            gradient[0,j] += alpha[i]*2*kernel_model.kernel_par*(X_train[i,j] - mu_k[0,j])*kernel_model.kernel.eval(X_train[i,:], mu_k[0,:])
+
+    print("Gradient bei", mu_k)
+    print(X_train)
+    print()
+    print(gradient)
+
+    #return gradient 
     dimension = len(mu_k[0,:])
-    gradient = np.zeros((1,dimension))
-    eps = 0.05
+    gradient_fd = np.zeros((1,dimension))
+    eps = 0.01
     for j in range(dimension):
-        unit_vec = np.zeros((1,dimension))
-        unit_vec[0,j] = 1
-        gradient[0,j] = (kernel_model.predict(mu_k + eps*unit_vec) - kernel_model.predict(mu_k - eps*unit_vec))/(2*eps)
+       unit_vec = np.zeros((1,dimension))
+       unit_vec[0,j] = 1
+       gradient_fd[0,j] = (kernel_model.predict(mu_k + eps*unit_vec) - kernel_model.predict(mu_k - eps*unit_vec))/(2*eps)
     
+    print(gradient_fd)
     return gradient
 
 def remove_similar_points(X_train):
@@ -178,7 +197,8 @@ def remove_far_away_points(X_train, target_values, mu_k, TR_parameters):
     """
     idx = []
     for i in range(len(X_train[:,0])):
-        if np.linalg.norm(X_train[i,:] - mu_k[0,:]) > TR_parameters["radius"]:
+        #TODO find reasonable value when to kick out a point thats not expensive to compute
+        if np.linalg.norm(X_train[i,:] - mu_k[0,:]) > 6*TR_parameters["radius"]:
             idx.append(i)
 
     X_train_new = np.delete(X_train, (idx), axis=0)
@@ -186,7 +206,7 @@ def remove_far_away_points(X_train, target_values, mu_k, TR_parameters):
 
     return X_train_new, target_values_new
 
-def create_training_dataset_gradient(mu_k, X_train_old, y_train_old, TR_parameters, opt_fom_functional, kernel_model):
+def create_training_dataset_gradient(mu_k, X_train, y_train, TR_parameters, kernel_model):
     """Adds the points, that are necessary to approximate the gradient, to the training set. 
 
     This method also removes points that are too far away from the current iterate |mu_k| using the :meth:remove_far_away_points
@@ -195,14 +215,12 @@ def create_training_dataset_gradient(mu_k, X_train_old, y_train_old, TR_paramete
     ----------
     mu_k
         The current iterate |mu_k|
-    X_train_old
+    X_train
         The training set from the last iteration
-    y_train_old
+    y_train
         The target values corresponding to the old training set |X_train_old|
     TR_parameters
         The list |TR_parameters| which contains all the parameters of the TR algorithm
-    opt_fom_functional
-        The FOM |opt_fom_functional| that gets optimized
     kernel_model
         The |kernel_model| which is used to approximate the FOM
 
@@ -215,42 +233,50 @@ def create_training_dataset_gradient(mu_k, X_train_old, y_train_old, TR_paramete
     gradient
         An approxmiation of the gradient at the parameter |mu_k|
     """
-    if X_train_old is not None and y_train_old is not None:
-        X_train, y_train = remove_far_away_points(X_train_old, y_train_old, mu_k, TR_parameters)
-        X_train = np.append(X_train, mu_k, axis=0)
-        old_len = len(X_train[:,0])
-        X_train = remove_similar_points(X_train)
-        if old_len == len(X_train[:,0]):
-            new_target_value = fom_compute_output(X_train[-1,:])
-            y_train = np.append(y_train, np.array(new_target_value, ndmin=2, copy=False), axis=0)
-        length_clean = len(X_train[:,0])
-    else: 
-        X_train = mu_k
-        y_train = np.zeros((1,1))
-        y_train[0,0] = fom_compute_output(mu_k)
-        length_clean = 1
+    
+    # if X_train_old is not None and y_train_old is not None:
+    #     X_train, y_train = remove_far_away_points(X_train_old, y_train_old, mu_k, TR_parameters)
 
+    #     #TODO check if required
+    #     X_train = np.append(X_train, mu_k, axis=0)
+
+    #     old_len = len(X_train[:,0])
+    #     X_train = projection_onto_range(parameter_space, X_train)
+    #     X_train = remove_similar_points(X_train)
+    #     #TODO check if this is correct
+    #     if old_len == len(X_train[:,0]):
+    #         new_target_value = fom_compute_output(X_train[-1,:])
+    #         y_train = np.append(y_train, np.array(new_target_value, ndmin=2, copy=False), axis=0)
+    #     length_clean = len(X_train[:,0])
+
+        # kernel_model = kernel_model.fit(X_train, y_train, maxIter=length_clean)
+        # print("X_train in pounkte", X_train)
+        # gradient = compute_gradient(kernel_model, mu_k, X_train, y_train)
+        # print("gradd", gradient)
+        # return X_train, y_train, gradient
+    #else: #before the first TR iteration 
     dimension = len(mu_k[0,:])
-    eps = 0.05
+    eps = 0.07
+
     for j in range(dimension):
-        unit_vec = np.zeros((1,dimension))
-        unit_vec[0,j] = 1
-        fd_point_p = mu_k + eps*unit_vec
-        fd_point_m = mu_k - eps*unit_vec
-        X_train = np.append(X_train, fd_point_p, axis=0)
-        X_train = np.append(X_train, fd_point_m, axis=0)
+       unit_vec = np.zeros((1,dimension))
+       unit_vec[0,j] = 1
+       fd_point_p = mu_k + eps*unit_vec
+       fd_point_m = mu_k - eps*unit_vec
+       X_train = np.append(X_train, fd_point_p, axis=0)
+       X_train = np.append(X_train, fd_point_m, axis=0)
 
     X_train = projection_onto_range(parameter_space, X_train)
     X_train = remove_similar_points(X_train)
     num_of_points = len(X_train[:,0])
     
-    for i in range(num_of_points-length_clean):
-        new_target_value = fom_compute_output(X_train[length_clean+i,:])
-        y_train = np.append(y_train, np.array(new_target_value, ndmin=2, copy=False), axis=0)
-        next(global_counter)
+    for i in range(1, num_of_points):
+       new_target_value = fom_compute_output(X_train[i,:])
+       y_train = np.append(y_train, np.atleast_2d(new_target_value), axis=0)
+       next(global_counter)
     
     kernel_model = kernel_model.fit(X_train, y_train, maxIter=num_of_points)
-    gradient = compute_gradient(kernel_model, mu_k)
+    gradient = compute_gradient(kernel_model, mu_k, X_train, y_train)
 
     return X_train, y_train, gradient
 
@@ -281,11 +307,21 @@ def create_training_dataset(mu_k, X_train_old, y_train_old, TR_parameters, opt_f
     """
     X_train, y_train = remove_far_away_points(X_train_old, y_train_old, mu_k, TR_parameters)
     length_clean = len(X_train[:,0])
-    X_train = np.append(X_train, mu_k, axis=0)
-    direction = -gradient
+
+    #TODO check if necessary
+    #X_train = np.append(X_train, mu_k, axis=0)
+
+    direction = - gradient / np.linalg.norm(gradient)
     
-    new_point = mu_k + 2*direction
+    #TODO check how many steps in the -grad are usefull
+    #new_point = mu_k + 0.25*direction
+    #X_train = np.append(X_train, new_point, axis=0)
+    new_point = mu_k + 0.5*direction
     X_train = np.append(X_train, new_point, axis=0)
+    new_point = mu_k + direction
+    X_train = np.append(X_train, new_point, axis=0)
+    #new_point = mu_k + 3*direction
+    #X_train = np.append(X_train, new_point, axis=0)
     
     X_train = projection_onto_range(parameter_space, X_train)
     X_train = remove_similar_points(X_train)
@@ -296,9 +332,9 @@ def create_training_dataset(mu_k, X_train_old, y_train_old, TR_parameters, opt_f
         y_train = np.append(y_train, np.array(new_target_value, ndmin=2, copy=False), axis=0)
         next(global_counter)
 
-    return X_train, y_train
+    return X_train, y_train, num_of_points
 
-#TODO only use the points, that where choosen by the greedy procedure
+#TODO only use the points, that where choosen by the greedy procedure, or dont use greedy procedure in general, as not required here
 def power_function(mu, X_train, kernel):
     """Computes the value of the Power Function for the paramter |mu|.
 
@@ -321,6 +357,8 @@ def power_function(mu, X_train, kernel):
 
     lagrange_basis = np.linalg.pinv(K) @ kernel_vector
     interpolant = np.dot(lagrange_basis[:,0], kernel_vector[:,0])
+
+    #TODO the abs function should not be needed here 
     power_val = m.sqrt(abs(kernel.eval(mu,mu) - interpolant))
 
     return power_val
@@ -357,7 +395,7 @@ def armijo_rule(kernel_model, X_train, TR_parameters, mu_i, Ji, direction, RKHS_
     j = 0
     condition = True
     while condition and j < TR_parameters['max_iterations_armijo']:
-        mu_ip1 = mu_i + (TR_parameters['initial_step_armijo']**j) * direction
+        mu_ip1 = mu_i + 3*(TR_parameters['initial_step_armijo']**j) * (direction / np.linalg.norm(direction))
         mu_ip1 = projection_onto_range(parameter_space, mu_ip1)
 
         Jip1 = kernel_model.predict(mu_ip1)[0, 0]
@@ -365,7 +403,8 @@ def armijo_rule(kernel_model, X_train, TR_parameters, mu_i, Ji, direction, RKHS_
         power_val = power_function(mu_ip1, X_train, kernel_model.kernel)
         estimator_J = RKHS_norm*power_val
         
-        if Jip1 <= (Ji - (TR_parameters['armijo_alpha'] / ((TR_parameters['initial_step_armijo']**j))) * (np.linalg.norm(mu_ip1 - mu_i)**2)) and abs(estimator_J / Jip1) <= TR_parameters['radius']:
+        #TODO anpassen auf unsere version, cos term fehlt!
+        if Jip1 <= (Ji - (TR_parameters['armijo_alpha'] * TR_parameters['initial_step_armijo']**j)*np.linalg.norm(direction)*(np.linalg.norm(mu_ip1 - mu_i))) and abs(estimator_J / Jip1) <= TR_parameters['radius']:
             condition = False
         j += 1
 
@@ -399,6 +438,8 @@ def compute_new_hessian_approximation(mu_i, mu_old, gradient, gradient_old, B_ol
     B_new
         An approximation of the Hessian at parameter |mu_i|
     """
+
+    #TODO Note that this already computes the inverse!
     yk = gradient - gradient_old
     yk = yk[0,:]
     sk = mu_i - mu_old
@@ -417,7 +458,7 @@ def compute_new_hessian_approximation(mu_i, mu_old, gradient, gradient_old, B_ol
 
     return B_new
 
-def optimization_subproblem_BFGS(kernel_model, training_set, mu_i, TR_parameters, RKHS_norm):
+def optimization_subproblem_BFGS(kernel_model, X_train, y_train, mu_i, TR_parameters, RKHS_norm):
     """Solves the optimization subproblem of the TR algorithm using a BFGS with constraints.
 
     Parameters
@@ -426,6 +467,8 @@ def optimization_subproblem_BFGS(kernel_model, training_set, mu_i, TR_parameters
         The kernel model which is used to approximate the FOM
     X_train
         The training set of the |kernel_model|
+    y_train 
+        #TODO add 
     mu_i
         The current iterate of the TR algorithm 
     TR_parameters
@@ -448,27 +491,31 @@ def optimization_subproblem_BFGS(kernel_model, training_set, mu_i, TR_parameters
     
     Ji = kernel_model.predict(mu_i)[0, 0]
     
-    gradient = compute_gradient(kernel_model, mu_i)
+    gradient = compute_gradient(kernel_model, mu_i, X_train, y_train)
+
     print("The gradient at point {} is {}".format(mu_i[0,:], gradient[0,:]))
     
+    ##TODO only works because of the specific structure of mu_i. Make this more general
     B = np.eye(mu_i.size)
    
+   #TODO i eins kleiner machen
     i = 1
     while i <= TR_parameters['max_iterations_subproblem']:
         if i>1:
-            #TODO beschränkung nach oben
             if boundary_TR_criterium >= TR_parameters['beta_2']*TR_parameters['radius']:
                 print('Boundary condition of TR satisfied, stopping the sub-problem solver now')
                 break
             if normgrad < TR_parameters['sub_tolerance'] or J_diff < TR_parameters['safety_tolerance'] or mu_diff < TR_parameters['safety_tolerance']:
                 print('Subproblem converged: FOC = {}, mu_diff = {}, J_diff = {}'.format(normgrad, mu_diff, J_diff))
                 break
-
-        direction = -gradient
-
-        mu_ip1, Jip1, boundary_TR_criterium = armijo_rule(kernel_model, training_set, TR_parameters, mu_i, Ji, direction, RKHS_norm)
         
-        if i == 0:
+        
+        direction = -np.dot(gradient, B.T)
+        #direction = direction / np.linalg.norm(direction)
+
+        mu_ip1, Jip1, boundary_TR_criterium = armijo_rule(kernel_model, X_train, TR_parameters, mu_i, Ji, direction, RKHS_norm)
+        
+        if i == 1:
             J_AGC = Jip1
         
         mu_diff = np.linalg.norm(mu_i - mu_ip1) / (np.linalg.norm(mu_i))
@@ -478,7 +525,8 @@ def optimization_subproblem_BFGS(kernel_model, training_set, mu_i, TR_parameters
         Ji = Jip1
 
         old_gradient = gradient.copy()
-        gradient = compute_gradient(kernel_model, mu_i)
+        print("grad new proposal armijo")
+        gradient = compute_gradient(kernel_model, mu_i, X_train, y_train)
         
         mu_box = mu_i - gradient 
         first_order_criticity = mu_i - projection_onto_range(parameter_space, mu_box)
@@ -553,7 +601,24 @@ def TR_Kernel(opt_fom_functional, TR_parameters=None):
             TR_parameters['rho'] = 0.75
         if 'enlarge_radius' not in TR_parameters:
             TR_parameters['enlarge_radius'] = True
-        
+
+    TR_parameters_list = ['radius', 'sub_tolerance', 'max_iterations', 'max_iterations_subproblem',
+                         'starting_parameter', 'max_iterations_armijo', 'initial_step_armijo', 
+                         'armijo_alpha', 'safety_tolerance', 'FOC_tolerance',
+                         'beta_1', 'beta_2', 'rho', 'enlarge_radius']
+
+    for key in TR_parameters.keys():
+        assert key in TR_parameters_list
+
+    for (key, val) in TR_parameters.items():
+        if key != 'starting_parameter' and key != 'enlarge_radius':
+            assert isinstance(val, float) or isinstance(val, int)
+        elif key == 'starting_parameter':
+            #assert type(val).__name__ == "Mu"
+            assert isinstance(val, Mu)
+        else:
+            assert isinstance(val, bool)
+            
     mu_k = TR_parameters['starting_parameter']
     mu_k = parse_parameter_inverse(mu_k)
     
@@ -580,30 +645,33 @@ def TR_Kernel(opt_fom_functional, TR_parameters=None):
     start_time = time.time()
 
     tic = time.time()
-    X_train, y_train, gradient = create_training_dataset_gradient(mu_k, None, None, TR_parameters, opt_fom_functional, kernel_model)
-    X_train, y_train = create_training_dataset(mu_k, X_train, y_train, TR_parameters, opt_fom_functional, gradient)
-    times_FOM.append(time.time() - tic)
-
-    X_train = projection_onto_range(parameter_space, X_train)
-    X_train = remove_similar_points(X_train)
-    num_of_points = len(X_train[:,0])
-    kernel_model = kernel_model.fit(X_train, y_train, maxIter=num_of_points)
-
-    tic = time.time()
     J_k = fom_compute_output(mu_k)
+    next(global_counter)
     times_FOM.append(time.time()-tic)
     J_FOM_list.append(J_k)
 
+    X_train = mu_k 
+    y_train = np.zeros((1,1))
+    y_train[0,0] = J_k 
+
+    tic = time.time()
+    X_train, y_train, gradient = create_training_dataset_gradient(mu_k, X_train, y_train, TR_parameters, kernel_model)
+    X_train, y_train, num_of_points = create_training_dataset(mu_k, X_train, y_train, TR_parameters, opt_fom_functional, gradient)
+    print("test test", X_train)
+    times_FOM.append(time.time() - tic)
+
+    kernel_model = kernel_model.fit(X_train, y_train, maxIter=num_of_points)
+
     print('\n**************** Getting started with the TR-Algo ***********\n')
     print('Starting value of the functional {}'.format(J_k))
-    print('Initial parameter {}'.format(mu_k))
+    print('Initial parameter {}'.format(mu_k[0,:]))
 
     k = 1 
     while k <= TR_parameters['max_iterations']:
         print("\n *********** starting iteration number {} ***********".format(k))
         if point_rejected:
             point_rejected = False
-            if TR_parameters['radius'] < 2.22*1e-16:
+            if TR_parameters['radius'] < np.finfo(float).eps:
                 print('\n TR-radius below machine precision... stopping')
                 break 
         else: 
@@ -611,29 +679,34 @@ def TR_Kernel(opt_fom_functional, TR_parameters=None):
                 print('\n Stopping criteria fulfilled... stopping')
                 break 
 
-        mu_kp1, J_AGC, j, J_kp1 = optimization_subproblem_BFGS(kernel_model, X_train, mu_k, TR_parameters, RKHS_norm)
+        mu_kp1, J_AGC, j, J_kp1 = optimization_subproblem_BFGS(kernel_model, X_train, y_train, mu_k, TR_parameters, RKHS_norm)
         
         estimator_J = RKHS_norm*power_function(mu_kp1, X_train, kernel)
+        print("der estimator", J_kp1, estimator_J, J_AGC)
+        print()
 
-        if J_kp1 + estimator_J < J_AGC:
+        if J_kp1 + estimator_J <= J_AGC:
             print("Accepting the new mu {}".format(mu_kp1[0,:]))
             
             print("\nSolving FOM for new interpolation points ...")
             tic = time.time()
-            X_train, y_train, gradient = create_training_dataset_gradient(mu_kp1, X_train, y_train, TR_parameters, opt_fom_functional, kernel_model=kernel_model)
-            X_train, y_train = create_training_dataset(mu_kp1, X_train, y_train, TR_parameters, opt_fom_functional, gradient)
+            #X_train, y_train, gradient = create_training_dataset_gradient(mu_kp1, X_train, y_train, TR_parameters, opt_fom_functional, kernel_model=kernel_model)
+            #gradient = compute_gradient(kernel_model, mu_k, X_train, y_train)
+            #X_train, y_train, num_of_points = create_training_dataset(mu_kp1, X_train, y_train, TR_parameters, opt_fom_functional, gradient)
+            X_train = np.append(X_train, mu_kp1, axis=0)
+            #X_train, y_train, num_of_points = create_training_dataset(mu_kp1, X_train, y_train, TR_parameters, opt_fom_functional, gradient)
+            J_FOM_kp1 = fom_compute_output(mu_kp1)
+            next(global_counter)
+            y_train = np.append(y_train, np.atleast_2d(J_FOM_kp1), axis=0)
             times_FOM.append(time.time()-tic)
+            num_of_points += 1
             
-            X_train = projection_onto_range(parameter_space, X_train)
-            X_train = remove_similar_points(X_train)
-            num_of_points = len(X_train[:,0])
-
             print("Updating the kernel model ...\n")
             kernel_model = kernel_model.fit(X_train, y_train, maxIter=num_of_points)
 
-            tic = time.time()
-            J_FOM_list.append(fom_compute_output(mu_kp1))
-            times_FOM.append(time.time()-tic)
+            #tic = time.time()
+            J_FOM_list.append(J_FOM_kp1)
+            #times_FOM.append(time.time()-tic)
             
             # index = 0
             # for i in range(num_of_points):
@@ -643,8 +716,7 @@ def TR_Kernel(opt_fom_functional, TR_parameters=None):
             # J_FOM_list.append(y_train[index,0])
             
             if TR_parameters['enlarge_radius']:
-                if len(J_FOM_list) > 2:
-                    if abs(J_k - J_kp1) > TR_parameters['safety_tolerance']:
+                if len(J_FOM_list) > 2 and abs(J_k - J_kp1) > np.finfo(float).eps:
                         if (k-1 != 0) and ((J_FOM_list[-2] - J_FOM_list[-1])/(J_k - J_kp1)) > TR_parameters['rho']:
                             TR_parameters['radius'] *= 1/(TR_parameters['beta_1'])
                             print("Enlarging the TR radius to {}".format(TR_parameters['radius']))
@@ -658,7 +730,7 @@ def TR_Kernel(opt_fom_functional, TR_parameters=None):
             J_k = J_kp1
 
         elif J_kp1 - estimator_J > J_AGC:
-            print("Rejecting the parameter mu {}".format(mu_ip1[0,:]))
+            print("Rejecting the parameter mu {}".format(mu_kp1[0,:]))
 
             TR_parameters['radius'] *= TR_parameters['beta_1']
             print("Shrinking the TR radius to {}". TR_parameters['radius'])
@@ -666,26 +738,29 @@ def TR_Kernel(opt_fom_functional, TR_parameters=None):
             times.append(time.time() - start_time)
     
         else: 
-            print("Accepting to check if new model is better")
+            print("Building new model to check if proposed iterate decreases sufficiently")
 
             print("\nSolving FOM for new interpolation points ...")
             tic = time.time()
-            X_train, y_train, gradient = create_training_dataset_gradient(mu_kp1, X_train, y_train, TR_parameters, opt_fom_functional, kernel_model=kernel_model)
-            X_train, y_train = create_training_dataset(mu_kp1, X_train, y_train, TR_parameters, opt_fom_functional, gradient)
+            #X_train, y_train, gradient = create_training_dataset_gradient(mu_kp1, X_train, y_train, TR_parameters, opt_fom_functional, kernel_model=kernel_model)
+            #gradient = compute_gradient(kernel_model, mu_k, X_train, y_train)
+            X_train = np.append(X_train, mu_kp1, axis=0)
+            #X_train, y_train, num_of_points = create_training_dataset(mu_kp1, X_train, y_train, TR_parameters, opt_fom_functional, gradient)
+            J_FOM_kp1 = fom_compute_output(mu_kp1)
+            next(global_counter)
+            y_train = np.append(y_train, np.atleast_2d(J_FOM_kp1), axis=0)
             times_FOM.append(time.time()-tic)
+            num_of_points += 1
             
-            X_train = projection_onto_range(parameter_space, X_train)
-            X_train = remove_similar_points(X_train)
-            num_of_points = len(X_train[:,0])
-
             print("\nUpdating the kernel model ...\n")
             kernel_model = kernel_model.fit(X_train, y_train,maxIter=num_of_points)
             
             J_kp1 = kernel_model.predict(mu_kp1)[0, 0]
 
-            tic = time.time()
-            J_FOM_list.append(fom_compute_output(mu_kp1))
-            times_FOM.append(time.time()-tic)
+            #tic = time.time()
+            J_FOM_list.append(J_FOM_kp1)
+            #times_FOM.append(time.time()-tic)
+
             # index = 0
             # for i in range(num_of_points):
             #     if np.linalg.norm(X_train[i,:] - mu_kp1[0,:] ) < 0.025:
@@ -705,8 +780,7 @@ def TR_Kernel(opt_fom_functional, TR_parameters=None):
                 print("Improvement good enough: Accpeting the new mu {}".format(mu_kp1[0,:]))
 
                 if TR_parameters['enlarge_radius']:
-                    if len(J_FOM_list) > 2:
-                        if abs(J_k - J_kp1) > TR_parameters['safety_tolerance']:
+                    if len(J_FOM_list) > 2 and abs(J_k - J_kp1) > np.finfo(float).eps:
                             if (k-1 != 0) and ((J_FOM_list[-2] - J_FOM_list[-1])/(J_k - J_kp1)) > TR_parameters['rho']:
                                 TR_parameters['radius'] *= 1/(TR_parameters['beta_1'])
                                 print("Enlarging the TR radius to {}".format(TR_parameters['radius']))
@@ -718,13 +792,17 @@ def TR_Kernel(opt_fom_functional, TR_parameters=None):
                 times.append(time.time() - start_time)
 
         if not point_rejected:
-            gradient = compute_gradient(kernel_model, mu_k)
+            #Compute the gradient at the new iterate, to check if termination criterion is satisfied
+            gradient = compute_gradient(kernel_model, mu_k, X_train, y_train)
+
+            #TODO this sees a bit weird, check
             mu_box = mu_k - gradient 
             first_order_criticity = mu_k - projection_onto_range(parameter_space, mu_box)
             normgrad = np.linalg.norm(first_order_criticity)
     
         FOCs.append(normgrad)    
         print("First order critical condition: {}".format(normgrad)) 
+        #if not point_rejected:
         k += 1
 
     print("\n************************************* \n")
@@ -735,74 +813,147 @@ def TR_Kernel(opt_fom_functional, TR_parameters=None):
     return mu_list, J_FOM_list, J_kernel_list, FOCs, times, times_FOM
     
 # #Setting up the  linear problem 
-# problem = problems.linear_problem()
-# mu_bar = problem.parameters.parse([np.pi/2,np.pi/2])
-# fom, data = discretize_stationary_cg(problem, diameter=1/50, mu_energy_product=mu_bar)
-# parameter_space = fom.parameters.space(0, np.pi)
-# mu_k = parameter_space.sample_randomly(1)[0]
-
-# mu_list, J_FOM_list, J_kernel_list, FOCs, times, times_FOM = TR_Kernel(fom, TR_parameters={'radius': 0.1, 
-#                         'sub_tolerance': 1e-8, 'max_iterations': 7, 'max_iterations_subproblem': 100,
-#                         'starting_parameter': mu_k, 'max_iterations_armijo': 50, 'initial_step_armijo': 0.5, 
-#                         'armijo_alpha': 1e-4, 'safety_tolerance': 1e-16, 'FOC_tolerance': 1e-10,
-#                         'beta_1': 0.5, 'beta_2': 0.95, 'rho': 0.75, 'enlarge_radius': True})
-
-# print("Der berechnete Minimierer", mu_list[-1])
-# print("Der tatsächliche Wert von mu", J_FOM_list[-1])
-# print("Der approxmierte Wert von J", J_kernel_list[-1])
-# print("Die benötigte Zeit (online phase) beträgt", times[-1])
-# print("FOM eval time", sum(times_FOM))
-# print("number of FOM eval", global_counter)
-
-grid, bi = load_gmsh('fin_mesh.msh')
-
-problem = problems.Fin_problem(6)
-
-#setting up optimal parameter 
-mu_d = problem.parameter_space.sample_randomly(1, seed=222)[0]
-mu_d_as_array = parse_parameter_inverse(mu_d)
-mu_d_as_array[0,0] = 0.01
-mu_d_as_array[0,1]= 0.1
-mu_d = problem.parameters.parse(mu_d_as_array[0,:])
-
-#define gloabal parameter space
-#TODO this needs to be done different in later scenarios
-parameter_space = problem.parameter_space
-
-print('mu desired:', mu_d)
-fom, data, mu_bar = discretizer.discretize_fin_pdeopt_stationary_cg(problem, grid, bi, mu_d, 
-                                                            product='fixed_energy',
-                                                            add_constant_term=True)
-
-mu_opt = mu_d
-mu_opt_as_array = parse_parameter_inverse(mu_opt)
-print('Optimal parameter: ', mu_opt_as_array)
-J_opt = fom_compute_output(mu_opt)
-print('Optimal J: ', J_opt)
-
-print()
-mu_start = problem.parameter_space.sample_randomly(1, seed=11)[0]
-print('Starting parameter: ', parse_parameter_inverse(mu_start))
-J_start = fom_compute_output(mu_start)
-print('Starting J: ', J_start)
-
-# for i in range(8):
-#     mu_d_as_array[0,5] = i+1
-#     mu_d = problem.parameters.parse(mu_d_as_array[0,:])
-#     print(mu_d)
-#     J = fom_compute_output(mu_d)
-#     print("value at ", i, J)
+problem = problems.linear_problem()
+mu_bar = problem.parameters.parse([np.pi/2,np.pi/2])
+fom, data = discretize_stationary_cg(problem, diameter=1/50, mu_energy_product=mu_bar)
+parameter_space = fom.parameters.space(0, np.pi)
+mu_k = [0.25, 0.5]
+mu_k = problem.parameters.parse(mu_k)
+#mu_k = parameter_space.sample_randomly(1)[0]
 
 mu_list, J_FOM_list, J_kernel_list, FOCs, times, times_FOM = TR_Kernel(fom, TR_parameters={'radius': 0.1, 
                         'sub_tolerance': 1e-8, 'max_iterations': 20, 'max_iterations_subproblem': 100,
-                        'starting_parameter': mu_start, 'max_iterations_armijo': 50, 'initial_step_armijo': 0.5, 
+                        'starting_parameter': mu_k, 'max_iterations_armijo': 50, 'initial_step_armijo': 0.5, 
                         'armijo_alpha': 1e-4, 'safety_tolerance': 1e-16, 'FOC_tolerance': 1e-10,
-                        'beta_1': 0.5, 'beta_2': 0.95, 'rho': 0.75, 'enlarge_radius': True})
-#plt.show(block=True)
-print("das sollte rauskommen", mu_opt_as_array)
+                        'beta_1': 0.5, 'beta_2': 0.80, 'rho': 0.75, 'enlarge_radius': True})
+
 print("Der berechnete Minimierer", mu_list[-1])
-print("Der berechnete Minimieren exakt", J_FOM_list[-1])
+print("Der tatsächliche Wert von mu", J_FOM_list[-1])
 print("Der approxmierte Wert von J", J_kernel_list[-1])
 print("Die benötigte Zeit (online phase) beträgt", times[-1])
 print("FOM eval time", sum(times_FOM))
 print("number of FOM eval", global_counter)
+
+#######################################
+# from functools import partial
+# from scipy.optimize import minimize
+# from time import perf_counter
+
+# ranges = parameter_space.ranges['diffusion']
+
+# def prepare_data(offline_time=False, enrichments=False):
+#     data = {'num_evals': 0, 'evaluations' : [], 'evaluation_points': [], 'time': np.inf}
+#     if offline_time:
+#         data['offline_time'] = offline_time
+#     if enrichments:
+#         data['enrichments'] = 0
+#     return data
+
+# def record_results(function, data, adaptive_enrichment=False, opt_dict=None, mu=None):
+#     if adaptive_enrichment:
+#         # this is for the adaptive case! rom is shiped via the opt_dict argument.
+#         assert opt_dict is not None
+#         QoI, data, rom = function(mu, data, opt_dict)
+#         opt_dict['opt_rom'] = rom
+#     else:
+#         QoI = function(mu)
+#     data['num_evals'] += 1
+#     data['evaluation_points'].append(mu)
+#     data['evaluations'].append(QoI)
+#     return QoI
+
+# def optimize(J, data, ranges, gradient=False, adaptive_enrichment=False, opt_dict=None):
+#     tic = perf_counter()
+#     result = minimize(partial(record_results, J, data, adaptive_enrichment, opt_dict),
+#                       [0.25, 0.5],
+#                       method='L-BFGS-B', jac=gradient,
+#                       bounds=(ranges, ranges),
+#                       options={'ftol': 1e-15, 'gtol': 5e-5})
+#     data['time'] = perf_counter()-tic
+#     return result
+
+# def report(result, data, reference_mu=None):
+#     if (result.status != 0):
+#         print('\n failed!')
+#     else:
+#         print('\n succeeded!')
+#         print(f'  mu_min:    {fom.parameters.parse(result.x)}')
+#         print(f'  J(mu_min): {result.fun}')
+#         if reference_mu is not None:
+#             print(f'  absolute error w.r.t. reference solution: {np.linalg.norm(result.x-reference_mu):.2e}')
+#         print(f'  num iterations:     {result.nit}')
+#         print(f'  num function calls: {data["num_evals"]}')
+#         print(f'  time:               {data["time"]:.5f} seconds')
+#         if 'offline_time' in data:
+#                 print(f'  offline time:       {data["offline_time"]:.5f} seconds')
+#         if 'enrichments' in data:
+#                 print(f'  model enrichments:  {data["enrichments"]}')
+#     print('')
+
+# reference_minimization_data = prepare_data()
+# tucc = time.time()
+# fom_result = optimize(fom_compute_output, reference_minimization_data, ranges)
+# print("heheh", time.time() - tucc)
+# reference_mu = fom_result.x
+# report(fom_result, reference_minimization_data)
+
+# grid, bi = load_gmsh('fin_mesh.msh')
+
+# problem = problems.Fin_problem(6)
+
+# #setting up optimal parameter 
+# mu_d = problem.parameter_space.sample_randomly(1, seed=222)[0]
+# mu_d_as_array = parse_parameter_inverse(mu_d)
+# mu_d_as_array[0,0] = 0.01
+# mu_d_as_array[0,1]= 0.1
+# mu_d = problem.parameters.parse(mu_d_as_array[0,:])
+
+# #define gloabal parameter space
+# #TODO this needs to be done different in later scenarios
+# parameter_space = problem.parameter_space
+
+# print('mu desired:', mu_d)
+# fom, data, mu_bar = discretizer.discretize_fin_pdeopt_stationary_cg(problem, grid, bi, mu_d, 
+#                                                             product='fixed_energy',
+#                                                             add_constant_term=True)
+
+# mu_opt = mu_d
+# print(mu_opt)
+# mu_opt_as_array = parse_parameter_inverse(mu_opt)
+# print('Optimal parameter: ', mu_opt_as_array)
+# J_opt = fom_compute_output(mu_opt)
+# print('Optimal J: ', J_opt)
+
+# print()
+# mu_start = problem.parameter_space.sample_randomly(1, seed=10)[0]
+# print('Starting parameter: ', parse_parameter_inverse(mu_start))
+# J_start = fom_compute_output(mu_start)
+# print('Starting J: ', J_start)
+
+# from pymor.discretizers.builtin.cg import InterpolationOperator
+
+# # vis_mu = mu_start
+# # diff = InterpolationOperator(data['grid'], problem.diffusion).as_vector(vis_mu)
+# # rhs = InterpolationOperator(data['grid'], problem.rhs).as_vector(vis_mu)
+# # #fom.visualize(diff)
+# # #fom.visualize(rhs)
+
+# # u = fom.solve(mu_start)
+# # p = fom.solve_dual(mu_start)
+# # #
+# # #fom.visualize(u)
+# # #fom.visualize(p)
+
+# mu_list, J_FOM_list, J_kernel_list, FOCs, times, times_FOM = TR_Kernel(fom, TR_parameters={'radius': 0.1, 
+#                         'sub_tolerance': 1e-8, 'max_iterations': 30, 'max_iterations_subproblem': 100,
+#                         'starting_parameter': mu_start, 'max_iterations_armijo': 50, 'initial_step_armijo': 0.5, 
+#                         'armijo_alpha': 1e-4, 'safety_tolerance': 1e-16, 'FOC_tolerance': 1e-10,
+#                         'beta_1': 0.5, 'beta_2': 0.95, 'rho': 0.75, 'enlarge_radius': True})
+# plt.show(block=True)
+# print("das sollte rauskommen", mu_opt_as_array)
+# print("Der berechnete Minimierer", mu_list[-1])
+# print("Der berechnete Minimieren exakt", J_FOM_list[-1])
+# print("Der approxmierte Wert von J", J_kernel_list[-1])
+# print("Die benötigte Zeit (online phase) beträgt", times[-1])
+# print("FOM eval time", sum(times_FOM))
+# print("number of FOM eval", global_counter)
