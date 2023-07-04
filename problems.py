@@ -51,7 +51,7 @@ def Fin_problem(parameter_dimension=2):
         parameter_ranges = {'biot': np.array([0.01,1]), 'k': np.array([0.1,10])}
         parameter_type = {'biot': (), 'k': ()}
     elif parameter_dimension == 6:
-        functions = [ExpressionFunction('(2.5 <= x[0]) * (x[ 0] <= 3.5) * (0 <= x[1]) * (x[1] <= 4) * 1.', dim_domain=2),
+        functions = [ExpressionFunction('(2.5 <= x[0]) * (x[0] <= 3.5) * (0 <= x[1]) * (x[1] <= 4) * 1.', dim_domain=2),
                      ExpressionFunction('(0 <= x[0]) * (x[0] < 2.5) * (0.75 <= x[1]) * (x[1] <= 1) * \
                                 1. + (3.5 < x[0]) * (x[0] <= 6) * (0.75 <= x[1]) * (x[1] <=1) * 1.', dim_domain=2),
                      ExpressionFunction('(0 <= x[0]) * (x[0] < 2.5) * (1.75 <= x[1]) * (x[1] <= 2) * 1. \
