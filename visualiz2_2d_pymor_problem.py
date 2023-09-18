@@ -1,26 +1,27 @@
 from pymor.basic import *
 import numpy as np
-import math as m
 import time 
-from vkoga.vkoga import VKOGA
-from vkoga.kernels import Gaussian
 from ownwork import problems
-from itertools import count
+#from itertools import count
 from pymor.discretizers.builtin.cg import InterpolationOperator
 from pymor.parameters.base import Mu
 from matplotlib import pyplot as plt
 from pymor.discretizers.builtin.cg import InterpolationOperator
-import csv 
-from mpl_toolkits.mplot3d import Axes3D # required for 3d plots
-from matplotlib import cm # required for colors
+#import csv 
+#from mpl_toolkits.mplot3d import Axes3D # required for 3d plots
+#from matplotlib import cm # required for colors
 import matplotlib.pyplot as plt
 from time import perf_counter
 import matplotlib as mpl
+#from matplotlib import cm
 from functools import partial
 from scipy.optimize import minimize
 
 def fom_objective_functional(mu):
     return fom.output(mu)[0, 0]
+
+def fom_gradient_of_functional(mu):
+    return fom.output_d_mu(fom.parameters.parse(mu), return_array=True, use_adjoint=True)
 
 problem = problems.linear_problem()
 mu_bar = problem.parameters.parse([np.pi/2,np.pi/2])
@@ -52,18 +53,23 @@ def plot_3d_surface(f, x, y, alpha=1):
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     x, y, f_of_x = compute_value_matrix(f, x, y)
-    data = np.column_stack((x.reshape(-1,1), y.reshape(-1,1), f_of_x.reshape(-1,1)))
-    with open('data.csv', 'w+') as f: 
-        writer = csv.writer(f, delimiter=',')
-        writer.writerow(['X', 'Y', 'Z'])
-        for i in range(len(data[:,0])):
-            writer.writerow(data[i,:])
-    np.savetxt('data.csv', data, delimiter=',', header='X,Y,Z', comments='')
+    # data = np.column_stack((x.reshape(-1,1), y.reshape(-1,1), f_of_x.reshape(-1,1)))
+    # with open('data.csv', 'w+') as f: 
+    #     writer = csv.writer(f, delimiter=',')
+    #     writer.writerow(['X', 'Y', 'Z'])
+    #     for i in range(len(data[:,0])):
+    #         writer.writerow(data[i,:])
+    # np.savetxt('data.csv', data, delimiter=',', header='X,Y,Z', comments='')
+    ax.contour(x,y,f_of_x, levels=10, zdir='z', offset=1)
     ax.plot_surface(x, y, f_of_x, cmap='Blues',
                     linewidth=0, antialiased=False, alpha=alpha)
+    
     ax.view_init(elev=27.7597402597, azim=-39.6370967742)
     ax.set_xlim3d([-0.10457963, 3.2961723])
     ax.set_ylim3d([-0.10457963, 3.29617229])
+    ax.set_zlim3d([1,10])
+    ax.set_ylabel(r'$\mu_1$')
+    ax.set_xlabel(r'$\mu_2$')
     return ax
 
 def addplot_xy_point_as_bar(ax, x, y, color='orange', z_range=None):
@@ -71,7 +77,7 @@ def addplot_xy_point_as_bar(ax, x, y, color='orange', z_range=None):
     
 
 ranges = parameter_space.ranges['diffusion']
-XX = np.linspace(ranges[0] + 0.05, ranges[1], 10)
+XX = np.linspace(ranges[0] + 0.05, ranges[1], 60)
 
 #plot_3d_surface(fom_objective_functional, XX, XX)
 
@@ -83,28 +89,20 @@ def prepare_data(offline_time=False, enrichments=False):
         data['enrichments'] = 0
     return data
 
-def record_results(function, data, adaptive_enrichment=False, opt_dict=None, mu=None):
-    if adaptive_enrichment:
-        # this is for the adaptive case! rom is shiped via the opt_dict argument.
-        assert opt_dict is not None
-        QoI, data, rom = function(mu, data, opt_dict)
-        opt_dict['opt_rom'] = rom
-    else:
-        QoI = function(mu)
+def record_results(function, data, mu=None):
+    QoI = function(mu)
     data['num_evals'] += 1
     data['evaluation_points'].append(mu)
     data['evaluations'].append(QoI)
     return QoI
 
-def optimize(J, data, ranges, mu,  gradient=False, adaptive_enrichment=False, opt_dict=None):
+def optimize(J, data, ranges, mu,  gradient=False):
     tic = perf_counter()
-    result = minimize(partial(record_results, J, data, adaptive_enrichment, opt_dict),
+    result = minimize(partial(record_results, J, data),
                       mu,
                       method='L-BFGS-B', jac=gradient,
                       bounds=(ranges, ranges),
-                      #options={'ftol': 1e-15, 'gtol': 1e-10})
-                      #options = {'ftol': 1e-15, 'eps': 0.01})
-                      options = {'gtol': 1e-10})
+                      options = {'gtol': 1e-8,'ftol': 1e-10})
     data['time'] = perf_counter()-tic
     return result
 
@@ -125,19 +123,20 @@ def report(result, data):
                 print(f'  model enrichments:  {data["enrichments"]}')
     print('')
 
-amount_of_iters = 5
+amount_of_iters = 10
 
 result_times = np.zeros((1,amount_of_iters))
 result_J = np.zeros((1,amount_of_iters))
 result_mu = np.zeros((amount_of_iters,2))
 result_counter = np.zeros((1,amount_of_iters))
+mu_start_list = np.zeros((amount_of_iters, 2))
 
 for i in range(0, amount_of_iters):
     reference_minimization_data = prepare_data()
-    mu_init = np.random.uniform(0, np.pi, size=(1,2))[0,:]
-    fom_result = optimize(fom_objective_functional, reference_minimization_data, ranges, mu_init)
-    #reference_mu = fom_result.x #not used i think
-    #report(fom_result, reference_minimization_data)
+    np.random.seed(i)
+    mu_init = np.random.uniform(0.25, np.pi-0.25, size=(1,2))[0,:]
+    mu_start_list[i,:] = mu_init
+    fom_result = optimize(fom_objective_functional, reference_minimization_data, ranges, mu_init, gradient=fom_gradient_of_functional)
     result_times[0,i] = reference_minimization_data["time"]
     result_J[0,i] = fom_result.fun
     result_mu[i,:] = fom_result.x
@@ -151,9 +150,11 @@ print(result_mu)
 print()
 print("fun values")
 print(result_J)
-print()
 print("counter")
 print(result_counter)
 print("av. counter", sum(result_counter[0,:])/amount_of_iters)
+print()
+print(mu_start_list)
+np.save('reference_mu.npy', result_mu)
 
 plt.show(block=True)
