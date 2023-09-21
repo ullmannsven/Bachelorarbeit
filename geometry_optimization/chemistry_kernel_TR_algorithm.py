@@ -969,11 +969,11 @@ def optimize_chem(TR_Kernel, kernel_name, gamma_list, TR_parameters, amount_of_i
             TR_parameters['starting_parameter'] = mu_k
             TR_parameters['radius'] = save_radius 
             mu_list, J_FOM_list, _ , FOCs, time, _ , global_counter = TR_Kernel(kernel, global_counter, TR_parameters)
-            data['mu_error'][j,0] += mean_squared_error(mu_list[-1], mu_sol)
+            data['mu_error'][j,0] += mean_squared_error(mu_list[-1], mu_sol[0,:])
             data['times'][j,0] += time
             data['FOC'][j,0] += FOCs[-1]
             data['counter'][j,0] += global_counter
-            data['J_error'][j,0] += abs((J_FOM_list[-1] - 2.39770431)/(2.39770431))
+            data['J_error'][j,0] += abs((J_FOM_list[-1] + 24.20578163672)/(24.20578163672))
 
     return data
 
@@ -1000,16 +1000,3 @@ def report_chem_kernel_TR(data, gamma_list, amount_of_iters):
 
     df = pd.DataFrame(data_new)
     print(df)
-
-
-amount_of_iters = 1
-kernel_name = 'mat2'
-gamma_list = [1.5]
-
-TR_parameters = {'radius': 0.1, 'sub_tolerance': 1e-3, 'max_iterations': 20, 'max_iterations_subproblem': 100, 
-                'max_iterations_armijo': 100, 'initial_step_armijo': 0.75, 
-                'armijo_alpha': 1e-4, 'FOC_tolerance': 1e-8, 'J_tolerance': 1e-16,
-                'beta_1': 0.5, 'beta_2': 0.95, 'rho': 0.9, 'kernel_width': 1.5, 'advanced': True}
-
-
-data = optimize_chem(TR_Kernel, kernel_name, gamma_list, TR_parameters, amount_of_iters)
