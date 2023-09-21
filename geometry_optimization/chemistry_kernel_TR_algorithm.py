@@ -945,7 +945,7 @@ def optimize_chem(TR_Kernel, kernel_name, gamma_list, TR_parameters, amount_of_i
         Dictionary |data| to store results of the optimization algorithm.
     """ 
     mu_k = parse_ini_file(iter=0)
-    mu_sol = parse_ini_file(iter=0, name='ini_sol')
+    mu_sol = parse_ini_file(iter=0, name='opt_sol')
     data = prepare_data(gamma_list)
     save_radius = TR_parameters['radius']
     for j in range(len(gamma_list)):
@@ -1000,3 +1000,16 @@ def report_chem_kernel_TR(data, gamma_list, amount_of_iters):
 
     df = pd.DataFrame(data_new)
     print(df)
+
+
+amount_of_iters = 1
+kernel_name = 'mat2'
+gamma_list = [1.5]
+
+TR_parameters = {'radius': 0.1, 'sub_tolerance': 1e-3, 'max_iterations': 20, 'max_iterations_subproblem': 100, 
+                'max_iterations_armijo': 100, 'initial_step_armijo': 0.75, 
+                'armijo_alpha': 1e-4, 'FOC_tolerance': 1e-8, 'J_tolerance': 1e-16,
+                'beta_1': 0.5, 'beta_2': 0.95, 'rho': 0.9, 'kernel_width': 1.5, 'advanced': True}
+
+
+data = optimize_chem(TR_Kernel, kernel_name, gamma_list, TR_parameters, amount_of_iters)
