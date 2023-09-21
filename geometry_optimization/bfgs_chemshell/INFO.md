@@ -1,0 +1,1 @@
+In this folder the outcome of the BFGS algorithm using DL_FIND within ChemShell are stored.
