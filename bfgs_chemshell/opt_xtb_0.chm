@@ -1,0 +1,5 @@
+read_xyz coords=ini_0.pun file=ini_0.xyz 
+dl-find coords=ini_0.pun theory=xtb : { charge=0 } list_option=full maxcycle=1 result=opt_structure.pun 
+write_xyz file=opt_structure.xyz coords=opt_structure.pun
+
+

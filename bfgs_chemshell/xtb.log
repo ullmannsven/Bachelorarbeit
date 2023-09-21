@@ -1,0 +1,240 @@
+      -----------------------------------------------------------      
+     |                   =====================                   |     
+     |                           x T B                           |     
+     |                   =====================                   |     
+     |                         S. Grimme                         |     
+     |          Mulliken Center for Theoretical Chemistry        |     
+     |                    University of Bonn                     |     
+     |                 Version 6.0.1 (SAW181210)                 |     
+      -----------------------------------------------------------      
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+   
+   FOR NON-COMMERCIAL, ACADEMIA USE ONLY.
+   
+   Cite this work as:
+   S. Grimme, C. Bannwarth, P. Shushkov, J. Comput. Theory Chem., 2017,
+   13, 1989-2009.
+   C. Bannwarth, S. Ehlert and S. Grimme., ChemRxiv, 2018, preprint.
+   http://doi.org/10.26434/chemrxiv.7246238.v1
+   
+   for sTDA-xTB:
+   S. Grimme and C. Bannwarth, J. Chem. Phys., 2016, 145, 054103.
+   
+   in the mass-spec context:
+   V. Asgeirsson, C. Bauer and S. Grimme, Chem. Sci., 2017, 8, 4879.
+   
+   if GBSA is used:
+   P. Shushkov, F. März and S. Grimme, unpublished.
+   
+   for ANC optimizer:
+   S. Grimme, unpublished.
+   Rational Function algorithm used in ANCopt:
+   F. Eckert, P. Pulay, H.-J. Werner, J. Comput. Chem., 1997, 18, 1473.
+   
+   with help from (in alphabetical order)
+   C. Bannwarth, F. Bohle, G. Brandenburg, E. Caldeweyher, M. Checinski,
+   S. Dohm, S. Ehlert, S. Ehrlich, F. März, H. Neugebauer, J. Pisarek,
+   P. Pracht, P. Shushkov, and S. Spicher.
+   
+ * started run on 2023/09/08 at 11:30:35.796     
+========================================================================
+ # omp threads = 24
+========================================================================
+number of atoms            : 16
+number of electrons        : 42
+charge                     : 0
+spin                       : .0
+first test random number   : .6929
+
+########################################################################
+# WARNING! Please study the warnings concerning your input carefully
+#  - the use of '-grad' is discouraged, please use '--grad' next time
+#  - set-blocks will become obsolete in xtb 6.0
+#  - the key 'fragment' is not recognized by set
+#  - the key 'fragment' is not recognized by set
+########################################################################
+
+           ------------------------------------------------- 
+          |                 G F N 2 - x T B                 |
+          | Geometry, Frequencies, Noncovalent interactions |
+          |            JCTC 2018 parametrisation            |
+           ------------------------------------------------- 
+ 
+      method parameters     
+ k(s)        :  1.8500
+ k(p)        :  2.2300
+ k(d)        :  2.2300
+ k(f)        :  2.0000
+ kEN (H0ij)  : -2.0000
+ D4 a1       :  0.5200
+ D4 a2       :  5.0000
+ D4 s6       :  1.0000
+ D4 s8       :  2.7000
+ D4 s9       :  5.0000
+ alphaj      :  2.0000
+
+
+            Z     q(EN)     CN     RAES       Cart. coordinates
+     1  N   5.0   -0.19    3.05    1.93    -5.65420     0.26550    -0.35296
+     2  C   4.0    0.00    4.02    3.66    -2.97342     0.99718    -0.58085
+     3  C   4.0    0.04    4.10    3.79    -1.33528    -0.46404     1.32194
+     4  O   6.0   -0.21    2.14    1.85     1.28685     0.35457     1.20951
+     5  C   4.0    0.18    3.15    3.03     2.90296    -0.75603    -0.53672
+     6  C   4.0   -0.05    3.98    3.59     5.55274     0.30427    -0.34112
+     7  O   6.0   -0.29    1.15    1.80     2.32838    -2.39397    -2.08574
+     8  H   1.0    0.08    1.02    1.43    -6.30487     0.56623     1.45003
+     9  H   1.0    0.08    1.02    1.43    -5.88012    -1.63333    -0.68465
+    10  H   1.0    0.06    1.01    1.43    -2.30779     0.63663    -2.53204
+    11  H   1.0    0.05    1.01    1.43    -2.77467     3.05694    -0.27564
+    12  H   1.0    0.04    1.00    1.43    -2.04388    -0.12713     3.26027
+    13  H   1.0    0.05    1.00    1.43    -1.50621    -2.53275     1.02693
+    14  H   1.0    0.05    0.99    1.43     6.34372    -0.03555     1.55820
+    15  H   1.0    0.05    0.99    1.43     5.55294     2.35870    -0.69832
+    16  H   1.0    0.05    0.99    1.43     6.81286    -0.59721    -1.73885
+
+  Z AO/shell   Hii/eV     exponent
+  1     Wed Apr 25 08:07:45 CEST 2018   EN: 2.200 GM2: 0.406  GM3: 0.0800  RAES: 1.40
+     1s    -10.707211    1.230000
+  6     Wed Apr 25 08:07:45 CEST 2018   EN: 2.550 GM2: 0.538  GM3: 0.1500  RAES: 3.00
+     2s    -13.970922    2.096432
+     2p    -10.063292    1.800000
+  7     Wed Apr 25 08:07:45 CEST 2018   EN: 3.040 GM2: 0.461  GM3:-0.0640  RAES: 1.90
+     2s    -16.686243    2.339881
+     2p    -12.523956    2.014332
+  8     Wed Apr 25 08:07:45 CEST 2018   EN: 3.440 GM2: 0.452  GM3:-0.0517  RAES: 1.80
+     2s    -20.229985    2.439742
+     2p    -15.503117    2.137023
+ no old-style atom pair restraining (fixing) potential
+           ------------------------------------------------- 
+          |        Self-Consistent Charge Iterations        |
+           ------------------------------------------------- 
+q/qsh data taken from xtbrestart
+CAMM data taken from xtbrestart
+
+ Ncao       : 37
+ Nao        : 37
+ Nshell     : 23
+ Nel        : 42
+ T(el)      :   300.0
+ intcut     :    25.0
+ scfconv/Eh :  0.100E-05
+   qconv/e  :  0.100E-03
+ intneglect :  0.100E-07
+ broydamp   :      0.250
+ # of PC   :      0
+ sum of qPC:    0.00000
+ iter      E             dE          RMSdq      gap      omega  full diag
+   1    -24.4149155 -0.244149E+02  0.404E-01    3.61       0.0  T
+   2    -24.4154411 -0.525540E-03  0.288E-01    3.65       1.0  T
+   3    -24.4154783 -0.372088E-04  0.162E-01    3.66       1.0  T
+   4    -24.4154782  0.109604E-06  0.310E-02    3.67       1.0  T
+   5    -24.4154824 -0.421241E-05  0.918E-03    3.67       2.7  T
+   6    -24.4154825 -0.102717E-06  0.260E-03    3.67       9.6  T
+   7    -24.4154825 -0.244798E-08  0.153E-03    3.67      16.3  T
+   8    -24.4154825 -0.301981E-08  0.246E-04    3.67     101.6  T
+   9    -24.4154825 -0.895497E-10  0.127E-04    3.67     196.7  T
+speedup 13.72
+cpu  time for SCC    0.14 s
+wall time for SCC    0.01 s
+
+   *** convergence criteria satisfied after 9 iterations ***
+
+          eigenvalues
+ #    :           9         10         11         12         13         14         15         16
+ occ. :        2.000      2.000      2.000      2.000      2.000      2.000      2.000      2.000
+ eps  :       -15.353    -15.278    -14.621    -14.274    -13.783    -13.510    -13.252    -13.168
+ #    :          17         18         19         20         21         22         23         24
+ occ. :        2.000      2.000      2.000      2.000      2.000      0.000      0.000      0.000
+ eps  :       -13.023    -12.443    -12.163    -11.505    -10.411     -6.740     -1.374      0.865
+ #    :          25         26         27         28         29         30         31         32
+ occ. :        0.000      0.000      0.000      0.000      0.000      0.000      0.000      0.000
+ eps  :         1.997      2.496      2.841      3.161      3.566      4.017      4.558      4.905
+
+
+   #   Z            q   n(s)   n(p)   n(d)      C6AA      α(0)
+   1   7 N     -0.334  1.368  3.966  0.000    28.592     7.941
+   2   6 C      0.008  1.049  2.942  0.000    20.546     6.473
+   3   6 C      0.071  1.048  2.881  0.000    19.623     6.349
+   4   8 O     -0.284  1.696  4.588  0.000    18.714     5.840
+   5   6 C      0.353  1.033  2.614  0.000    20.999     7.500
+   6   6 C     -0.138  1.049  3.089  0.000    23.221     6.874
+   7   8 O     -0.399  1.750  4.649  0.000    21.664     6.240
+   8   1 H      0.138  0.862  0.000  0.000     1.486     1.909
+   9   1 H      0.142  0.858  0.000  0.000     1.457     1.891
+  10   1 H      0.057  0.943  0.000  0.000     2.231     2.336
+  11   1 H      0.052  0.948  0.000  0.000     2.299     2.371
+  12   1 H      0.051  0.949  0.000  0.000     2.309     2.376
+  13   1 H      0.049  0.951  0.000  0.000     2.331     2.388
+  14   1 H      0.077  0.923  0.000  0.000     2.006     2.215
+  15   1 H      0.078  0.922  0.000  0.000     2.000     2.212
+  16   1 H      0.077  0.923  0.000  0.000     2.010     2.217
+
+ Mol. C6AA /au·bohr⁶  :       2052.408285
+ Mol. C8AA /au·bohr⁸  :      43257.146858
+ Mol. α(0) /au        :         67.133257
+
+ 
+ Wiberg/Mayer (AO) data. WBOs > 0.1 written file <wbo>
+ largest (>0.05) Wiberg bond orders for each atom
+           total WBO             WBO to atom ...
+     1  N   3.009    C    2 1.028    H    8 0.967    H    9 0.967
+     2  C   3.982    N    1 1.028    C    3 0.986    H   11 0.973    H   10 0.973
+     3  C   3.926    C    2 0.986    H   12 0.970    H   13 0.970    O    4 0.942
+     4  O   2.277    C    5 1.103    C    3 0.942    O    7 0.170
+     5  C   3.915    O    7 1.769    O    4 1.103    C    6 0.997
+     6  C   3.990    C    5 0.997    H   16 0.982    H   14 0.963    H   15 0.962    O    7 0.053
+     7  O   2.044    C    5 1.769    O    4 0.170    C    6 0.053
+     8  H   0.981    N    1 0.967
+     9  H   0.980    N    1 0.967
+    10  H   0.997    C    2 0.973
+    11  H   0.997    C    2 0.973
+    12  H   0.997    C    3 0.970
+    13  H   0.998    C    3 0.970
+    14  H   0.994    C    6 0.963
+    15  H   0.994    C    6 0.962
+    16  H   0.994    C    6 0.982
+ MOs/occ written to file <molden.input>
+ 
+molecular dipole:
+                 x           y           z       tot (Debye)
+ q only:        0.026       0.478       0.646
+   full:        0.190       0.292       1.018       2.734
+molecular quadrupole (traceless):
+                xx          xy          yy          xz          yz          zz
+ q only:        6.467       4.272      -3.403      -1.127      -3.060      -3.065
+  q+dip:        3.276       6.353      -1.640      -3.531      -3.686      -1.636
+   full:        3.871       6.410      -1.931      -3.418      -4.141      -1.940
+speedup 13.79
+cpu  time for grad    0.21 s
+wall time for grad    0.02 s
+
+SCC energy    :     -24.4154825
+rep           :       0.2187184
+ES            :       0.0555095
+AES           :       0.0034792
+AXC           :       0.0098674
+disp          :      -0.0084427
+XB            :       0.0000000
+fix           :       0.0000000
+grad norm     :       0.0750528
+total E       :     -24.1967686
+atomizationE  :       4.1016438     2573.82
+(atE without considering molecular charge,
+ total energy contains solvation terms)
+H-L gap (eV)  :          3.6715
+
+------------------------------------------------------------------------
+ * finished run on 2023/09/08 at 11:30:41.894     
+------------------------------------------------------------------------
+ total:
+ * wall-time:     0 d,  0 h,  0 min,  6.098 sec
+ *  cpu-time:     0 d,  0 h,  0 min,  0.838 sec
+ * ratio c/w:     0.137 speedup
+ SCF:
+ * wall-time:     0 d,  0 h,  0 min,  0.016 sec
+ *  cpu-time:     0 d,  0 h,  0 min,  0.224 sec
+ * ratio c/w:    13.753 speedup
+
