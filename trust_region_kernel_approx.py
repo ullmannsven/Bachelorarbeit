@@ -9,8 +9,6 @@ from scipy.spatial import ConvexHull
 from sklearn.metrics import mean_squared_error
 import mpmath as mp
 
-#global_counter = 0
-
 def draw_convex_hulls(TR_plot_matrix, parameter_space, TR_parameters, iter, X_train, kernel, kernel_model, RKHS_norm):
     """ This methods is part of the drawing process for the TR of the advanced formulation. It checks which points from a fine mesh satisfy c_{adv}^{(i)} >= 0. 
 
@@ -27,9 +25,9 @@ def draw_convex_hulls(TR_plot_matrix, parameter_space, TR_parameters, iter, X_tr
     X_train
         The interpolation point set at the current iterate.
     kernel
-        The |kernel| used to approximate the objective function.
+        The |kernel| used to interpolate the objective function.
     kernel_model
-        The |kernel_model| used to approximate the objective function.
+        The |kernel_model| used to interpolate the objective function.
     RKHS_norm 
         An approximation of the RKHS norm of the objective function.
     """
@@ -67,14 +65,14 @@ def fom_compute_output(fom, mu):
     
 
 def projection_onto_range(parameter_space, mu):
-    """Projects the parameter |mu| onto the given range of the parameter space
+    """Projects the parameter |mu| onto the given range of the parameter space.
 
     Parameters
     ----------
     parameter_space
         The |parameter_space| of the full order model which is optimized.
     mu
-        parameters |mu| that is projected onto the given range
+        The parameter |mu| that is projected onto the given range.
 
     Returns
     -------
@@ -95,17 +93,17 @@ def projection_onto_range(parameter_space, mu):
     return mu_new
 
 def parse_parameter_inverse(mu):
-    """Transform a pymor Mu Object |mu| to a numpy array |mu_array|
+    """Transform a pymor Mu Object |mu| to a numpy array |mu_array|.
 
     Parameters
     ----------
     mu
-        The parameter |mu| that needs to be transformed to a numpy array
+        The parameter |mu| that get transformed to a numpy array.
 
     Returns
     -------
     mu_array
-        The numpy array with the same values
+        The transformed numpy array.
     """
     mu_k = []
     for (key, item) in mu._raw_values.items():
@@ -129,12 +127,12 @@ def update_kernel_model(X_train, y_train, kernel):
     y_train 
         The target values of the interpolation problem at the current iterate.
     kernel
-        The |kernel| used for the interpolation.
+       The |kernel| used to interpolate the objective function.
 
     Returns
     -------
     kernel_model
-        The |kernel_model| that interpolates the target function. 
+        The |kernel_model| that interpolates the interpolates function. 
     """
     try:
         K = kernel.eval(X_train, X_train)
@@ -156,7 +154,7 @@ def compute_RKHS_norm(kernel, fom, parameter_space):
     Parameters
     ----------
     kernel
-        The reproducing kernel of the RKHS.
+        The reproducing kernel of the RKHS that is used to interpolate the objective function.
     fom 
         The |fom| that gets evaluated. 
     parameter_space
@@ -167,9 +165,9 @@ def compute_RKHS_norm(kernel, fom, parameter_space):
     rkhs_norm
         An approximation of the RKHS norm of the objective function.
     X_train 
-        The interpolation set used to approximate the target function.
+        The interpolation point set that approximates the objective function.
     y_train 
-        The target values of the interpolation task.
+        The target values of the interpolation problem.
     """
 
     amount = 20
@@ -197,20 +195,20 @@ def remove_similar_points(X_train, y_train, TR_parameters, iter):
     Parameters
     ----------
     X_train
-        The training set which is getting reduced.
+        The interpolation pont set which is getting reduced.
     y_train 
-        The target values corresponding to X_train.
+        The target values of the interpolation problem at the current iterate.
     TR_parameters
-        List of all parameters of the kernel TR algorithm.
+        The dictionary |TR_parameters| which contains all the parameters of the kernel TR algorithm.
     iter
         The current iteration of the algorithm.
 
     Returns
     -------
     X_train
-        The cleared training set |X_train|.
+        The cleared interpolation point set |X_train|.
     y_train 
-        The cleared target value set |y_train|.
+        The cleared target values |y_train|.
     """
     idx = []
     num_of_points = len(X_train[:,0])
@@ -233,16 +231,18 @@ def compute_gradient(kernel, mu_k, X_train, y_train, TR_parameters, iteration):
     Parameters
     ----------
     kernel
-        The |kernel| which is used for approximating the objective function.
+        The |kernel| which is used to approximate the objective function.
     mu_k 
         The parameter |mu_k| where the gradient is computed.
     X_train 
-        The set of interpolation points used to build the current model.
+        The  interpolation points set at the current iterate.
     Y_train 
-        The target values of the objective function corresponding to |X_train|.
+        The target values of the interpolation problem at the current iterate.
     TR_parameters
-        List of all parameters of the kernel TR algorithm.
-    
+        The dictionary |TR_parameters| which contains all the parameters of the kernel TR algorithm.
+    iteration
+        The current iteration of the algorithm.
+
     Returns
     -------
     gradient
@@ -286,9 +286,9 @@ def remove_far_away_points(X_train, y_train, mu_k, num_to_keep):
     Parameters
     ----------
     X_train
-        The training set that gets modified.
+        The intepolation point set that gets modified.
     y_train
-        The target_values of the interpolation training set |X_train|.
+        The target_values of the interpolation problem.
     mu_k
         The current iterate |mu_k|.
     TR_parameters
@@ -299,7 +299,7 @@ def remove_far_away_points(X_train, y_train, mu_k, num_to_keep):
     X_train
         The modified interpolation training set |X_train|.
     y_train
-        The target_values of the modified training set |X_train|.
+        The modified target_values of the interpolation problem.
     """
     if num_to_keep > len(X_train[:,0]):
         num_to_keep = len(X_train[:,0])
@@ -326,9 +326,9 @@ def create_training_dataset(mu_k, fom, parameter_space, X_train, y_train, global
     parameter_space
         The |parameter_space| of the full order model which is optimized.
     X_train
-        The interpolation training set.
+        The interpolation point set at the current iterate.
     y_train
-        The target values corresponding interpolation training set |X_train|.
+        The target values of the interpolation problem at the current iterate.
     global_counter
         Counts the amount of FOM evaluations.
     iter
@@ -343,7 +343,7 @@ def create_training_dataset(mu_k, fom, parameter_space, X_train, y_train, global
     X_train
         An updated training set.
     y_train
-        The target values corresponding to the updated training set |X_train|.
+        The updated target values of the interpolation problem.
     global_counter
         The increased |global_counter|.
     """
@@ -355,6 +355,9 @@ def create_training_dataset(mu_k, fom, parameter_space, X_train, y_train, global
         unit_vec = np.zeros((1,dimension))
         unit_vec[0,j] = 1
         if initial:
+            #Note: the values 0.75 and 0.03 were NOT specified in the thesis, but we mentioned in Chapter 5.6 that we choose suitable FD points.
+            #We these choices, we obtained good results in the 2D problem. 
+            #If this code is used to solve higher dimensional problems, this part certainly requires modification. 
             fd_point_p = mu_k + ((0.75)**iter)*0.03*unit_vec
             fd_point_m = mu_k - ((0.75)**iter)*0.03*unit_vec
             X_train = np.append(X_train, fd_point_p, axis=0)
@@ -406,8 +409,10 @@ def power_function(mu, X_train, kernel):
         lagrange_basis = mp.lu_solve(mp.matrix(K), mp.matrix(kernel_vector))
         
     interpolant = np.dot(lagrange_basis[:,0], kernel_vector[:,0])
+
+    #Due to numerical errors in solving the lin equation a few lines above, we use abs() within the sqrt().
+    #Otherwise this calculation results in an error in rare occasions. 
     power_val = m.sqrt(abs(kernel.eval(mu,mu) - interpolant))
-    #power_val = m.sqrt(kernel.eval(mu,mu) - interpolant)
 
     return power_val
 
