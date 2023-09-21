@@ -977,7 +977,7 @@ def optimize_chem(TR_Kernel, kernel_name, gamma_list, TR_parameters, amount_of_i
 
     return data
 
-def report_kernel_TR(data, gamma_list, amount_of_iters):
+def report_chem_kernel_TR(data, gamma_list, amount_of_iters):
     """Reports the results of the optimization algorithm. 
 
     Parameters
