@@ -27,9 +27,9 @@ def parse_ini_file(iter, name=None):
         The current iterate mu_k as a 2D numpy array.
     """
     if name is not None:
-        file = open("ref_sol/{}.xyz".format(name), "r")
+        file = open("{}.xyz".format(name), "r")
     else:
-        file = open("test_run_2/ini_{}.xyz".format(iter), "r")
+        file = open("optimization_results/ini_{}.xyz".format(iter), "r")
     mu = []
     for f in file:
         if any(f.startswith(s) for s in ["N","O","C","H"]):
@@ -47,7 +47,7 @@ def energy_value():
     -------
     The energy value from the current energy file
     """
-    with open("test_run_2/energy", "r") as file:
+    with open("optimization_results/energy", "r") as file:
         for line in file:
             splitted = line.split()
             if len(splitted) > 1:
@@ -66,7 +66,7 @@ def gradient_value(mu_k):
     The value of the gradient at the current iteration.
     """
     mu_k = np.atleast_2d(mu_k)
-    with open("test_run_2/gradient", "r") as file: 
+    with open("optimization_results/gradient", "r") as file: 
         skip_counter = 1
         counter = 0
         gradient = np.zeros((1,len(mu_k[0,:])))
@@ -91,7 +91,7 @@ def rename_chm_xtb_file(iter):
     iter
         The current outer iteration of the TR algorithm.
     """
-    with open("test_run_2/opt_xtb_0.chm", "r") as infile, open("test_run_2/opt_xtb_{}.chm".format(iter), "w") as outfile:
+    with open("optimization_results/opt_xtb_0.chm", "r") as infile, open("optimization_results/opt_xtb_{}.chm".format(iter), "w") as outfile:
         for line in infile:
             if "ini_0.xyz" in line:
                 new_line = line.replace("ini_0", "ini_{}".format(iter))
@@ -112,7 +112,7 @@ def write_xyz_file(mu, iter):
     """
     counter = 0
     mu = np.atleast_2d(mu)
-    with open("test_run_2/ini_0.xyz", "r") as infile, open("test_run_2/ini_{}.xyz".format(iter), "w") as outfile:
+    with open("optimization_results/ini_0.xyz", "r") as infile, open("optimization_results/ini_{}.xyz".format(iter), "w") as outfile:
         for line in infile:
             if any(line.startswith(s) for s in ["N","H","C","O"]):
                 outfile.write(line[0])
@@ -177,9 +177,9 @@ def fom_compute_output(mu, iter=0):
     if iter != 0:
         write_xyz_file(mu, iter) 
         rename_chm_xtb_file(iter)
-    with open('test_run_2/out', 'w') as stdout_file, open('test_run_2/err', 'w') as stderr_file:
+    with open('optimization_results/out', 'w') as stdout_file, open('optimization_results/err', 'w') as stderr_file:
         command = ['chemsh', 'opt_xtb_{}.chm'.format(iter)]
-        subprocess.run(command, stdout=stdout_file, stderr=stderr_file, cwd='./test_run_2')
+        subprocess.run(command, stdout=stdout_file, stderr=stderr_file, cwd='./optimization_results')
     energy = energy_value() + 30
     gradient = gradient_value(mu)
     return energy, gradient 
