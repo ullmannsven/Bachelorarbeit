@@ -1,0 +1,6 @@
+read_xyz coords=c file=ini_0.xyz
+
+
+energy coords=c theory=xtb : { charge=0 } list_option=full 
+
+
