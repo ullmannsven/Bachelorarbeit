@@ -654,7 +654,7 @@ def TR_Kernel(fom, kernel, parameter_space, global_counter, RKHS_norm, TR_parame
         TR_parameters = {'radius': 2, 'sub_tolerance': 1e-5, 'max_iterations': 35, 'max_iterations_subproblem': 100,
                          'starting_parameter': mu_k, 'max_iterations_armijo': 40, 'initial_step_armijo': 0.5, 
                          'armijo_alpha': 1e-4, 'FOC_tolerance': 1e-8, 'J_tolerance': 1e-10, 'beta_1': 0.5, 
-                         'beta_2': 0.95, 'rho': 0.9, 'max_amount_interpolation_points': 8, 'kernel_width': 1, 'advanced': True, 'draw_TR': False}
+                         'beta_2': 0.95, 'rho': 0.9, 'max_amount_interpolation_points': 8, 'kernel_width': kernel.ep, 'advanced': True, 'draw_TR': False}
     else:
         if 'radius' not in TR_parameters:
             TR_parameters['radius'] = 2
@@ -685,7 +685,7 @@ def TR_Kernel(fom, kernel, parameter_space, global_counter, RKHS_norm, TR_parame
         if 'max_amount_interpolation_points' not in TR_parameters:
             TR_parameters['max_amount_interpolation_points'] = 8
         if 'kernel_width' not in TR_parameters:
-            TR_parameters['kernel_width'] = 1
+            TR_parameters['kernel_width'] = kernel.ep
         if 'advanced' not in TR_parameters: 
             TR_parameters['advanced'] = True
         if 'draw_TR' not in TR_parameters: 

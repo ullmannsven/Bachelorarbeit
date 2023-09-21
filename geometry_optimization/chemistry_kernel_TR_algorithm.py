@@ -652,7 +652,7 @@ def TR_Kernel(kernel, global_counter, TR_parameters=None):
         TR_parameters = {'radius': 0.1, 'sub_tolerance': 1e-8, 'max_iterations': 20, 'max_iterations_subproblem': 100,
                          'starting_parameter': mu_k, 'max_iterations_armijo': 100, 'initial_step_armijo': 0.75, 
                          'armijo_alpha': 1e-4, 'FOC_tolerance': 1e-8, 'J_tolerance': 1e-16,
-                         'beta_1': 0.5, 'beta_2': 0.95, 'rho': 0.9, 'kernel_width': 1.5, 'avanced': True}
+                         'beta_1': 0.5, 'beta_2': 0.95, 'rho': 0.9, 'kernel_width': kernel.ep, 'avanced': True}
     else:
         if 'radius' not in TR_parameters:
             TR_parameters['radius'] = 0.1
@@ -681,7 +681,7 @@ def TR_Kernel(kernel, global_counter, TR_parameters=None):
         if 'rho' not in TR_parameters:
             TR_parameters['rho'] = 0.9
         if 'kernel_width' not in TR_parameters: 
-            TR_parameters['kernel_width'] = 1.5
+            TR_parameters['kernel_width'] = kernel.ep
         if 'advanced' not in TR_parameters: 
             TR_parameters['advanced'] = True
 	    
